@@ -1,0 +1,188 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Cyber Dark (Default) */
+html,
+html[data-theme="cyber-dark"],
+html[data-theme="dark"] {
+  --bg: 10 13 20;
+  --fg: 244 244 245;
+  --muted: 161 161 170;
+  --card: 13 17 26;
+  --card-elevated: 24 24 27;
+  --line: 39 39 42;
+  --accent: 6 182 212;
+  --accent-fg: 9 9 11;
+  --user: 14 165 233;
+}
+
+/* Midnight Deep Blue */
+html[data-theme="midnight-blue"],
+html[data-theme="midnight"] {
+  --bg: 9 13 22;
+  --fg: 241 245 249;
+  --muted: 148 163 184;
+  --card: 15 23 42;
+  --card-elevated: 30 41 59;
+  --line: 30 58 138;
+  --accent: 59 130 246;
+  --accent-fg: 255 255 255;
+  --user: 37 99 235;
+}
+
+/* Matrix Emerald */
+html[data-theme="matrix"] {
+  --bg: 5 13 8;
+  --fg: 236 253 245;
+  --muted: 52 211 153;
+  --card: 9 21 13;
+  --card-elevated: 12 28 17;
+  --line: 6 78 59;
+  --accent: 16 185 129;
+  --accent-fg: 5 13 8;
+  --user: 5 150 105;
+}
+
+/* Synthwave / Dracula Purple */
+html[data-theme="dracula"],
+html[data-theme="aurora"] {
+  --bg: 18 11 28;
+  --fg: 243 232 255;
+  --muted: 216 180 254;
+  --card: 26 16 40;
+  --card-elevated: 37 24 56;
+  --line: 88 28 135;
+  --accent: 217 70 239;
+  --accent-fg: 255 255 255;
+  --user: 168 85 247;
+}
+
+/* Clean Light */
+html[data-theme="light"] {
+  --bg: 248 250 252;
+  --fg: 15 23 42;
+  --muted: 100 116 139;
+  --card: 255 255 255;
+  --card-elevated: 241 245 249;
+  --line: 226 232 240;
+  --accent: 79 70 229;
+  --accent-fg: 255 255 255;
+  --user: 99 102 241;
+}
+
+/* Warm Beige */
+html[data-theme="beige"] {
+  --bg: 245 237 224;
+  --fg: 62 48 36;
+  --muted: 140 118 96;
+  --card: 252 246 236;
+  --card-elevated: 255 252 247;
+  --line: 224 206 182;
+  --accent: 176 122 74;
+  --accent-fg: 255 250 242;
+  --user: 154 98 58;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: rgb(var(--bg));
+  color: rgb(var(--fg));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Subtle modern background glow */
+body::before {
+  content: "";
+  position: fixed;
+  top: -15%;
+  left: 30%;
+  width: 50vw;
+  height: 40vw;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgb(var(--accent) / 0.05), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+html[data-theme="beige"] body {
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgb(255 248 236), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgb(236 214 186 / 0.55), transparent 50%),
+    rgb(var(--bg));
+}
+
+/* Glassmorphism utility */
+.glass-panel {
+  background-color: rgb(var(--card) / 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgb(var(--line) / 0.8);
+}
+
+.glass-pill {
+  background-color: rgb(var(--card) / 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgb(var(--line));
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--line));
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--muted) / 0.5);
+}
+
+details > summary {
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+details[open] > summary .details-chevron {
+  transform: rotate(180deg);
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgb(var(--accent) / 0.4);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgb(var(--accent) / 0);
+    transform: scale(1.02);
+  }
+}
+
+.pulse-listening {
+  animation: pulseGlow 1.8s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+@keyframes soundWave {
+  0%, 100% {
+    height: 4px;
+  }
+  50% {
+    height: 18px;
+  }
+}
+
+.sound-bar-1 { animation: soundWave 0.7s infinite ease-in-out; }
+.sound-bar-2 { animation: soundWave 0.9s infinite ease-in-out 0.15s; }
+.sound-bar-3 { animation: soundWave 0.6s infinite ease-in-out 0.3s; }
+.sound-bar-4 { animation: soundWave 0.8s infinite ease-in-out 0.45s; }

@@ -1,0 +1,170 @@
+import type { AgentEvent, MemoryFact } from "./types";
+
+export const API = "http://127.0.0.1:8000";
+
+export async function fetchMemory(): Promise<MemoryFact[]> {
+  const r = await fetch(`${API}/memory`);
+  if (!r.ok) throw new Error(`memory ${r.status}`);
+  const data = (await r.json()) as { facts: MemoryFact[] };
+  return data.facts ?? [];
+}
+
+export async function streamChat(
+  message: string,
+  maxSteps: number,
+  signal: AbortSignal,
+  onEvent: (ev: AgentEvent) => void,
+  history: { role: string; text: string }[] = [],
+  opts: { workspace?: string; mode?: string } = {},
+): Promise<void> {
+  const r = await fetch(`${API}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message,
+      max_steps: maxSteps,
+      history,
+      workspace: opts.workspace || undefined,
+      mode: opts.mode || undefined,
+    }),
+    signal,
+  });
+  if (!r.ok || !r.body) {
+    throw new Error(`chat ${r.status}`);
+  }
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const parts = buf.split("\n");
+    buf = parts.pop() ?? "";
+    for (const line of parts) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        onEvent(JSON.parse(trimmed) as AgentEvent);
+      } catch {
+        /* ignore partial JSON */
+      }
+    }
+  }
+  if (buf.trim()) {
+    try {
+      onEvent(JSON.parse(buf.trim()) as AgentEvent);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export function staticUrl(path: string): string {
+  if (path.startsWith("http")) return path;
+  return `${API}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+type TTSVoice = { id: string; name: string; lang: string; gender: string };
+
+/** In-flight / resolved cache — survives HMR remounts via sessionStorage. */
+const TTS_VOICES_SESSION_KEY = "ra-tts-voices-v1";
+let ttsVoicesPromise: Promise<TTSVoice[]> | null = null;
+
+function readCachedTTSVoices(): TTSVoice[] | null {
+  try {
+    const raw = sessionStorage.getItem(TTS_VOICES_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { at?: number; voices?: TTSVoice[] };
+    if (!parsed?.voices?.length || !parsed.at) return null;
+    // 1 hour client cache
+    if (Date.now() - parsed.at > 60 * 60 * 1000) return null;
+    return parsed.voices;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchTTSVoices(): Promise<TTSVoice[]> {
+  if (!ttsVoicesPromise) {
+    ttsVoicesPromise = (async () => {
+      const cached = readCachedTTSVoices();
+      if (cached) return cached;
+      try {
+        const r = await fetch(`${API}/tts/voices`);
+        if (!r.ok) return [];
+        const data = (await r.json()) as { voices: TTSVoice[] };
+        const voices = data.voices ?? [];
+        if (voices.length) {
+          try {
+            sessionStorage.setItem(
+              TTS_VOICES_SESSION_KEY,
+              JSON.stringify({ at: Date.now(), voices }),
+            );
+          } catch {
+            /* ignore quota */
+          }
+        }
+        return voices;
+      } catch {
+        return [];
+      }
+    })();
+  }
+  return ttsVoicesPromise;
+}
+
+export async function synthesizeTTS(
+  text: string,
+  voice = "en-US-AriaNeural",
+  rate = "+0%",
+  pitch = "+0Hz",
+): Promise<Blob | null> {
+  try {
+    const r = await fetch(`${API}/tts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, voice, rate, pitch }),
+    });
+    if (!r.ok) return null;
+    return await r.blob();
+  } catch {
+    return null;
+  }
+}
+
+export async function uploadFile(
+  file: File,
+): Promise<{
+  filename: string;
+  url: string;
+  size: number;
+  isImage: boolean;
+  preview?: string;
+}> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const r = await fetch(`${API}/upload`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!r.ok) {
+    throw new Error(`Upload failed with status ${r.status}`);
+  }
+  const data = (await r.json()) as {
+    filename: string;
+    url: string;
+    size: number;
+    is_image: boolean;
+    preview?: string;
+  };
+  return {
+    filename: data.filename,
+    url: staticUrl(data.url),
+    size: data.size,
+    isImage: data.is_image,
+    preview: data.preview,
+  };
+}
+
+
