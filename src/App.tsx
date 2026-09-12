@@ -9,7 +9,6 @@ import {
 } from 'react-router-dom';
 import AIAgentInterface from './AIAgentInterface';
 import AIChatInterface from './AIChatInterface';
-import { Chat as GrokChatView } from './components/Chat';
 import {
   BrainEngine,
   ServerEngine,
@@ -35,7 +34,6 @@ import {
   Database,
   Globe,
   Network,
-  TerminalSquare,
   Cpu
 } from 'lucide-react';
 
@@ -47,7 +45,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navItems = [
     { path: '/agent', label: 'Agent Workflow', icon: <GitMerge className="w-3.5 h-3.5" /> },
     { path: '/chat', label: 'Chat Assistant', icon: <MessageSquare className="w-3.5 h-3.5" /> },
-    { path: '/grok-chat', label: 'Research Console', icon: <TerminalSquare className="w-3.5 h-3.5" /> },
     { path: '/architecture', label: 'Architecture & Tuning', icon: <Cpu className="w-3.5 h-3.5" /> },
     { path: '/webai', label: 'Web AI', icon: <Network className="w-3.5 h-3.5" /> },
     { path: '/browser', label: 'Web Browser', icon: <Globe className="w-3.5 h-3.5" /> },
@@ -153,7 +150,6 @@ export const App: React.FC = () => {
             <Route path="/" element={<Navigate to="/agent" replace />} />
             <Route path="/agent" element={<AIAgentInterface />} />
             <Route path="/chat" element={<AIChatInterface />} />
-            <Route path="/grok-chat" element={<GrokChatView />} />
             <Route path="/architecture" element={<ArchitectureEngine />} />
             <Route path="/webai" element={<WebAIEngine />} />
             <Route path="/browser" element={<WebBrowserEngine />} />

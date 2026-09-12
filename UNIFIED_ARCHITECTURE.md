@@ -27,7 +27,6 @@ Poor Man AI
 └── Frontend (Vite, React 18, Tailwind, Lucide) -> port 5173
     ├── Agent Workflow (/agent) -> Pipeline step inspection & simulation
     ├── Chat Assistant (/chat) -> Real-time NDJSON streaming UI with live trace
-    ├── Research Console (/grok-chat) -> Full research UI with history & audio
     ├── Architecture & Tuning (/architecture) -> Neural specs, parameters, quantization & fine-tuning studio
     ├── Web AI (/webai) -> Multi-engine consensus formulation
     ├── Web Browser (/browser) -> Live web retrieval across DDG/Google/Bing/Yandex
@@ -107,7 +106,6 @@ Poor Man AI
 | **Brain Engine** (`src/engines/BrainEngine.tsx`) | Static mock hyperparameters | Live fetches `/memory` (`server/data/memory.jsonl`) and `/mcp/neurons` routing network state. |
 | **Skill Engine** (`src/engines/SkillEngine.tsx`) | Hardcoded mock skills list | Live fetches `/mcp/skills` and `/mcp/knowledge` directly from the backend MCP system. |
 | **Tools Engine** (`src/engines/ToolsEngine.tsx`) | Hardcoded tool samples | Live fetches `/tools` from FastAPI backend exposing real Python tool parameters and JSONSchemas. |
-| **Research Console** | N/A (Only existed in Grok) | Added as dedicated route `/grok-chat` using Grok's original `Chat.tsx` component. |
 | **Architecture & Tuning** (`src/engines/ArchitectureEngine.tsx`) | N/A (New Studio Module) | Dedicated route `/architecture` backed by `server/architecture.py`, `GET /model/architecture`, and `POST /model/train` for neural blueprints, parameter math, AWQ/NF4 quantization, and QLoRA tuning. |
 
 ---
