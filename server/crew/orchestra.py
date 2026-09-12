@@ -113,14 +113,54 @@ async def run_crew(
                     break
         if label.startswith("1 "):
             wanted = _wanted_from_board(board)
+            # Hub broadcast of initial task specification
+            board.broadcast(
+                sender="coordinator",
+                topic="task_init",
+                payload=f"Hub assigned goal: '{goal}'. Wanted skills: {sorted(wanted)}",
+                priority="normal"
+            )
             run_early_exchange(board)
             early = _latest(board, "exchange")
             if early:
                 yield _sse({"type": "tool", "name": "crew:exchange", "args": {"phase": "1 understand"}})
                 yield _sse({"type": "observation", "name": "crew:exchange", "text": early.text[:2000]})
+
+        # Phase 5: Hub-and-Spoke Course-of-Action Debate & Resolution
+        if label.startswith("5 "):
+            # If debate topics exist or high-stake trade-offs appear, arbitrate on the hub
+            skeptic = _latest(board, "skeptic")
+            logic = _latest(board, "logic")
+            risk = _latest(board, "risk")
+            companion = _latest(board, "companion")
+            need_debate = bool(skeptic or risk)
+            if need_debate and not board.active_debates:
+                d = board.open_debate("action_plan", f"Validate trade-offs and risks for '{goal[:60]}'", initiator="skeptic" if skeptic else "logic")
+                # Collect proposals from spokes
+                if skeptic:
+                    board.submit_proposal("action_plan", "skeptic", "Rigorous Verification", 0.85, skeptic.text[:180])
+                if logic:
+                    board.submit_proposal("action_plan", "logic", "Direct Synthesis", 0.90, logic.text[:180])
+                if companion:
+                    board.submit_proposal("action_plan", "companion", "Conversational Clarity", 0.75, "Ensure actionable, natural response.")
+                verdict = board.arbitrate_debate("action_plan", coordinator="coordinator")
+                if verdict:
+                    yield _sse({
+                        "type": "tool",
+                        "name": "hub:broadcast_bus",
+                        "args": {"topic": "verdict:action_plan", "priority": "urgent", "router": "hub-and-spoke"}
+                    })
+                    yield _sse({"type": "observation", "name": "hub:broadcast_bus", "text": verdict[:2000]})
+
         if label.startswith("4 "):
             extra = await _fill_gaps(board)
             if extra:
+                board.broadcast(
+                    sender="gap",
+                    topic="fill_gaps",
+                    payload=f"Identified missing facets: {', '.join(extra)}",
+                    priority="urgent"
+                )
                 yield _sse(
                     {
                         "type": "plan",

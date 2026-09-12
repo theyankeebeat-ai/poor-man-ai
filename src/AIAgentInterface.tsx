@@ -16,7 +16,10 @@ import {
   Copy,
   Check,
   Flame,
-  ArrowRight
+  ArrowRight,
+  Radio,
+  Share2,
+  Scale
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
 
@@ -149,7 +152,56 @@ export const AIAgentInterface: React.FC = () => {
   });
   const [copied, setCopied] = useState(false);
   const [filterMode, setFilterMode] = useState<'all' | 'running' | 'completed'>('all');
-  const [activeTab, setActiveTab] = useState<'workflow' | 'live-terminal'>('workflow');
+  const [activeTab, setActiveTab] = useState<'workflow' | 'live-terminal' | 'broadcast-bus'>('workflow');
+
+  // Hub-and-Spoke Broadcast Bus Feed
+  const [broadcastMessages, setBroadcastMessages] = useState<Array<{
+    id: string;
+    sender: string;
+    topic: string;
+    payload: string;
+    priority: 'normal' | 'urgent';
+    timestamp: string;
+    responses?: Record<string, string>;
+  }>>([
+    {
+      id: 'bus-1',
+      sender: 'coordinator',
+      topic: 'task_init',
+      payload: 'Coordinator initialized task with Hub-and-Spoke broadcast routing. Bounded 1-round debate enabled.',
+      priority: 'normal',
+      timestamp: '03:45:12',
+      responses: { 'planner': 'Acknowledged task split.' }
+    },
+    {
+      id: 'bus-2',
+      sender: 'librarian',
+      topic: 'evidence:ready',
+      payload: 'Indexed 3 manifest files (package.json, yarn.lock, pyproject.toml). Vulnerability CVE-2023-45857 isolated.',
+      priority: 'normal',
+      timestamp: '03:45:14'
+    },
+    {
+      id: 'bus-3',
+      sender: 'skeptic',
+      topic: 'debate:action_plan',
+      payload: 'Course-of-action question: Upgrade axios to 1.7.4 directly or generate isolated patch branch first?',
+      priority: 'urgent',
+      timestamp: '03:45:15',
+      responses: {
+        'logic': 'Generate isolated patch branch to prevent breaking downstream build.',
+        'risk': 'Agree. Blast radius minimal on branch.'
+      }
+    },
+    {
+      id: 'bus-4',
+      sender: 'coordinator',
+      topic: 'verdict:action_plan',
+      payload: 'Hub Arbiter ruled in favor of [logic]: Adopt isolated patch branch strategy before PR merge.',
+      priority: 'urgent',
+      timestamp: '03:45:16'
+    }
+  ]);
 
   // Simulated live execution progress
   const [isSimulating, setIsSimulating] = useState<boolean>(true);
@@ -432,6 +484,20 @@ export const AIAgentInterface: React.FC = () => {
               >
                 Raw Stream Console
               </button>
+              <button
+                onClick={() => setActiveTab('broadcast-bus')}
+                className={`text-xs font-medium pb-1 border-b-2 transition-all flex items-center gap-1.5 ${
+                  activeTab === 'broadcast-bus'
+                    ? 'border-cyan-400 text-cyan-400 font-semibold'
+                    : `border-transparent ${colors.textMuted} hover:${colors.textPrimary}`
+                }`}
+              >
+                <Radio className="w-3.5 h-3.5" />
+                <span>Hub &amp; Broadcast Bus</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-cyan-500/20 text-cyan-300 font-mono">
+                  {broadcastMessages.length}
+                </span>
+              </button>
             </div>
 
             <div className={`text-xs ${colors.textMuted} flex items-center gap-2`}>
@@ -555,6 +621,106 @@ export const AIAgentInterface: React.FC = () => {
                   </div>
                 )}
               </>
+            ) : activeTab === 'broadcast-bus' ? (
+              /* Hub-and-Spoke Broadcast Bus Feed */
+              <div className="space-y-4">
+                {/* Topology Infobar */}
+                <div className={`p-4 rounded-xl ${colors.bgCard} border ${colors.border} flex items-center justify-between`}>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+                      <Share2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold flex items-center gap-2">
+                        Hub-and-Spoke with Broadcast Bus
+                        <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          O(N) Active
+                        </span>
+                      </h3>
+                      <p className={`text-xs ${colors.textMuted}`}>
+                        Central coordinator oversees spokes; workers broadcast queries &amp; debate course of action via shared bus. Bounded to 1 round of arbitration.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className={`hidden lg:flex items-center gap-3 text-xs font-mono ${colors.textMuted}`}>
+                    <div className="text-right">
+                      <span className="block font-semibold text-cyan-400">Max Latency Bound</span>
+                      <span>1 Debate Round</span>
+                    </div>
+                    <div className="h-6 w-px bg-zinc-700/40" />
+                    <div className="text-right">
+                      <span className="block font-semibold text-emerald-400">Message Cost</span>
+                      <span>O(N) linear</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Broadcast Bus Messages List */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider">
+                      <Radio className="w-4 h-4 text-cyan-400 animate-pulse" />
+                      <span>Live Broadcast Bus Events ({broadcastMessages.length})</span>
+                    </div>
+                    <span className={`text-[11px] font-mono ${colors.textMuted}`}>
+                      Auto-syncing to Blackboard
+                    </span>
+                  </div>
+
+                  {broadcastMessages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`p-4 rounded-xl border ${colors.border} ${colors.bgCard} shadow-sm space-y-2.5 transition-all`}
+                    >
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded font-mono font-bold text-[11px] ${
+                            msg.sender === 'coordinator'
+                              ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                              : msg.sender === 'skeptic'
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                              : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                          }`}>
+                            {msg.sender.toUpperCase()}
+                          </span>
+                          <span className={`font-mono text-[11px] ${colors.textMuted}`}>
+                            topic: <strong className={colors.textPrimary}>{msg.topic}</strong>
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {msg.priority === 'urgent' && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                              Urgent
+                            </span>
+                          )}
+                          <span className={`text-[11px] font-mono ${colors.textMuted}`}>{msg.timestamp}</span>
+                        </div>
+                      </div>
+
+                      <p className="text-xs leading-relaxed font-sans">{msg.payload}</p>
+
+                      {/* Responses / Spoke Clarifications */}
+                      {msg.responses && Object.keys(msg.responses).length > 0 && (
+                        <div className={`mt-2.5 pt-2.5 border-t ${colors.border} space-y-1.5`}>
+                          <span className={`text-[10px] uppercase font-mono ${colors.textMuted} block`}>
+                            Spoke Clarifications &amp; Proposals:
+                          </span>
+                          {Object.entries(msg.responses).map(([responder, text]) => (
+                            <div
+                              key={responder}
+                              className={`flex items-start gap-2 p-2 rounded-lg ${colors.badgeBg} border ${colors.border} text-xs font-mono`}
+                            >
+                              <span className="text-cyan-400 font-semibold shrink-0">[{responder}]:</span>
+                              <span className={colors.textPrimary}>{text}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             ) : (
               /* Live Terminal View */
               <div className={`h-full flex flex-col rounded-xl border ${colors.border} font-mono text-xs overflow-hidden ${colors.badgeBg}`}>

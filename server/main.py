@@ -169,6 +169,54 @@ def train_model_stub(payload: dict) -> dict:
     }
 
 
+@app.get("/crew/router")
+def get_crew_router() -> dict:
+    from server.crew.board import Blackboard
+    from server.reason import Plan
+    return {
+        "topology": "hybrid_hub_and_spoke_broadcast_bus",
+        "description": "Hub-and-spoke coordinator with shared broadcast bus for low-latency peer clarification, debate, and bounded 1-round arbitration.",
+        "max_debate_rounds": 1,
+        "supported_topics": ["task_init", "fill_gaps", "debate:action_plan", "verdict:action_plan", "clarification"],
+        "cost_efficiency": "O(N) message complexity vs O(N^2) for full cross-mesh.",
+    }
+
+
+@app.post("/crew/broadcast-test")
+def test_crew_broadcast(payload: dict) -> dict:
+    from server.crew.board import Blackboard
+    from server.reason import Plan
+
+    board = Blackboard(
+        goal=payload.get("goal", "Sample goal"),
+        plan=Plan(search_queries=["test"]),
+        history=[],
+        observations=[]
+    )
+    # 1. Hub broadcast
+    board.broadcast(
+        sender=payload.get("sender", "coordinator"),
+        topic=payload.get("topic", "task_init"),
+        payload=payload.get("message", "Task initialized with hybrid broadcast bus"),
+        priority=payload.get("priority", "normal")
+    )
+    # 2. Worker proposal if debate
+    if payload.get("debate"):
+        board.open_debate("test_debate", payload.get("debate_subject", "Course of action"), "skeptic")
+        board.submit_proposal("test_debate", "skeptic", "Strict Safety Mode", 0.92, "Avoid unchecked side-effects.")
+        board.submit_proposal("test_debate", "logic", "High Throughput Mode", 0.88, "Stream output directly.")
+        verdict = board.arbitrate_debate("test_debate", coordinator="coordinator")
+    else:
+        verdict = None
+
+    return {
+        "status": "ok",
+        "bus_log": board.bus_log(),
+        "broadcast_count": len(board.broadcast_bus),
+        "arbitrated_verdict": verdict,
+    }
+
+
 @app.get("/mcp/skills")
 def mcp_skills() -> dict:
     return {

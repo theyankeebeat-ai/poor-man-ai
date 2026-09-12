@@ -595,3 +595,51 @@ To elevate Poor Man AI into a fully functional, production-ready AI ecosystem, r
 * **Tab 2: Vector RAG**: Live chunk ingestion panel, vector size indicators, and interactive semantic search with cosine score visualizations.
 * **Tab 3: Guardrail Inspector**: Interactive prompt tester displaying pass/reject decisions, triggered safety rules, and sanitized PII output previews.
 
+---
+
+## 14. Multi-Agent Routing Topology: Hybrid Hub-and-Spoke with Broadcast Bus
+
+To overcome the latency, rate limiting, and context window explosion inherent in "every agent talks to everyone" ($O(N^2)$ cross-mesh), Poor Man AI implements a **Hybrid Hub-and-Spoke with Broadcast Bus** topology.
+
+```
+                      ┌────────────────────────────────────────┐
+                      │        Coordinator / Arbiter (Hub)     │
+                      │  - Goal Decomposition                  │
+                      │  - Max 1-Round Debate Arbitration      │
+                      └──────────────────┬─────────────────────┘
+                                         │
+                 ┌───────────────────────┴───────────────────────┐
+                 │       Shared Blackboard Broadcast Bus         │
+                 │  - task_init | debate:* | verdict:* | gaps    │
+                 └───────┬───────────────┬───────────────┬───────┘
+                         ▲               ▲               ▲
+                         │               │               │
+                  ┌──────▼─────┐  ┌──────▼─────┐  ┌──────▼─────┐
+                  │  Worker A  │  │  Worker B  │  │  Worker C  │
+                  │ (Librarian)│  │  (Skeptic) │  │  (Logic)   │
+                  └────────────┘  └────────────┘  └────────────┘
+```
+
+### A. Core Mechanics & Design Trade-offs
+
+1. **Linear Message Complexity ($O(N)$ vs $O(N^2)$)**:
+   * Rather than spawning peer-to-peer point-to-point connections where all agents ping each other simultaneously, agents publish announcements, queries, and proposed actions to the **Broadcast Bus** on the shared `Blackboard` (`server/crew/board.py`).
+   * Spokes read relevant broadcast events directly from memory rather than incurring compounding LLM token prompts.
+
+2. **Bounded 1-Round Debate & Strict Arbitration**:
+   * Multi-agent debate is protected by a strict bounded guarantee: `max_debate_rounds = 1`.
+   * When spokes raise trade-off or risk questions (`open_debate`), conflicting viewpoints (e.g. `skeptic` vs `logic`) submit structured `DebateProposal`s with confidence scores.
+   * The **Hub Coordinator** evaluates proposals and emits a binding `arbitrate_debate` verdict onto the bus in a single step, halting infinite debate loops and context window thrashing.
+
+3. **Backend Implementation**:
+   * **Data Structures (`server/crew/board.py`)**: `BroadcastMessage`, `DebateProposal`, `DebateTopic`, and bus operations (`broadcast()`, `reply_to_broadcast()`, `open_debate()`, `submit_proposal()`, `arbitrate_debate()`, `bus_log()`).
+   * **Orchestra Integration (`server/crew/orchestra.py`)**: Automatic task initialization broadcast in Phase 1; gap alerts broadcast in Phase 4; course-of-action debate arbitration in Phase 5 streamed to client via `hub:broadcast_bus` SSE events.
+   * **API Endpoints (`server/main.py`)**:
+     * `GET /crew/router`: Inspects active routing topology, bounds, and cost-efficiency profile.
+     * `POST /crew/broadcast-test`: Automated integration harness verifying bus broadcasting and arbitration resolution.
+
+4. **Frontend Cockpit Integration (`src/AIAgentInterface.tsx`)**:
+   * Dedicated **"Hub & Broadcast Bus"** tab in the Agent Workflow interface.
+   * Displays live broadcast bus events, priority badges (`URGENT`/`NORMAL`), spoke proposal cards, and Hub arbiter verdicts alongside token and latency bounds.
+
+
