@@ -204,12 +204,14 @@ async def chat(req: ChatRequest) -> StreamingResponse:
         else:
             set_workspace(None)
         try:
+            intel = req.intelligence.model_dump(exclude_none=True) if req.intelligence else None
             async for line in run_agent(
                 req.message,
                 max_steps=max_steps,
                 history=[t.model_dump() for t in req.history],
                 mode_override=req.mode,
                 thinking_level=req.thinking_level or "medium",
+                intelligence=intel,
             ):
                 yield line
         except (asyncio.CancelledError, GeneratorExit):

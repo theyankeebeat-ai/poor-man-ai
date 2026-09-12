@@ -1,4 +1,23 @@
 import type { AgentEvent, MemoryFact } from "./types";
+import {
+  DEFAULT_HYPERPARAMS,
+  INTEL_STORAGE_KEY,
+  intelligencePayload,
+  type HyperparametersConfig,
+} from "./types/architecture";
+
+function loadIntelligence(): ReturnType<typeof intelligencePayload> {
+  try {
+    const raw = localStorage.getItem(INTEL_STORAGE_KEY);
+    if (raw) {
+      const hp = { ...DEFAULT_HYPERPARAMS, ...(JSON.parse(raw) as Partial<HyperparametersConfig>) };
+      return intelligencePayload(hp);
+    }
+  } catch {
+    /* ignore */
+  }
+  return intelligencePayload(DEFAULT_HYPERPARAMS);
+}
 
 export const API = "http://127.0.0.1:8000";
 
@@ -15,7 +34,7 @@ export async function streamChat(
   signal: AbortSignal,
   onEvent: (ev: AgentEvent) => void,
   history: { role: string; text: string }[] = [],
-  opts: { workspace?: string; mode?: string; thinking_level?: 'low' | 'medium' | 'high' } = {},
+  opts: { workspace?: string; mode?: string; thinking_level?: 'low' | 'medium' | 'high'; intelligence?: ReturnType<typeof intelligencePayload> } = {},
 ): Promise<void> {
   const r = await fetch(`${API}/chat`, {
     method: "POST",
@@ -27,6 +46,7 @@ export async function streamChat(
       workspace: opts.workspace || undefined,
       mode: opts.mode || undefined,
       thinking_level: opts.thinking_level || 'medium',
+      intelligence: opts.intelligence || loadIntelligence(),
     }),
     signal,
   });

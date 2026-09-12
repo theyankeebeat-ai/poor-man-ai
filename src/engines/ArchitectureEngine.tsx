@@ -22,6 +22,7 @@ import type {
   QuantizationConfig,
   FineTuningConfig
 } from '../types/architecture';
+import { DEFAULT_HYPERPARAMS, INTEL_STORAGE_KEY } from '../types/architecture';
 
 export const ArchitectureEngine: React.FC = () => {
   const { colors } = useTheme();
@@ -32,18 +33,14 @@ export const ArchitectureEngine: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [trainingStatus, setTrainingStatus] = useState<string | null>(null);
 
-  const [hyperparams, setHyperparams] = useState<HyperparametersConfig>({
-    temperature: 0.7,
-    top_p: 0.95,
-    top_k: 40,
-    min_p: 0.05,
-    repetition_penalty: 1.1,
-    frequency_penalty: 0.0,
-    presence_penalty: 0.0,
-    max_new_tokens: 2048,
-    context_window: 8192,
-    seed: 42,
-    reasoning_effort: 'medium'
+  const [hyperparams, setHyperparams] = useState<HyperparametersConfig>(() => {
+    try {
+      const raw = localStorage.getItem(INTEL_STORAGE_KEY);
+      if (raw) return { ...DEFAULT_HYPERPARAMS, ...JSON.parse(raw) };
+    } catch {
+      /* ignore */
+    }
+    return { ...DEFAULT_HYPERPARAMS };
   });
 
   const [quantConfig, setQuantConfig] = useState<QuantizationConfig>({
@@ -99,9 +96,17 @@ export const ArchitectureEngine: React.FC = () => {
     loadArchitectures();
   }, []);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(INTEL_STORAGE_KEY, JSON.stringify(hyperparams));
+    } catch {
+      /* ignore */
+    }
+  }, [hyperparams]);
+
   const selectedBlueprint = blueprints.find((b) => b.key === selectedArchKey) || blueprints[0];
 
-  const applyPreset = (preset: 'creative' | 'code' | 'research' | 'fast') => {
+  const applyPreset = (preset: 'creative' | 'code' | 'research' | 'fast' | 'smarter') => {
     if (preset === 'creative') {
       setHyperparams({
         ...hyperparams,
@@ -109,7 +114,10 @@ export const ArchitectureEngine: React.FC = () => {
         top_p: 0.92,
         top_k: 50,
         repetition_penalty: 1.08,
-        reasoning_effort: 'low'
+        reasoning_effort: 'low',
+        self_critique: false,
+        consensus_search: false,
+        max_plan_tools: 3
       });
     } else if (preset === 'code') {
       setHyperparams({
@@ -118,7 +126,10 @@ export const ArchitectureEngine: React.FC = () => {
         top_p: 0.95,
         top_k: 20,
         repetition_penalty: 1.05,
-        reasoning_effort: 'high'
+        reasoning_effort: 'high',
+        verify_claims: true,
+        self_critique: true,
+        writer_temperature: 0.12
       });
     } else if (preset === 'research') {
       setHyperparams({
@@ -127,7 +138,14 @@ export const ArchitectureEngine: React.FC = () => {
         top_p: 0.90,
         top_k: 40,
         repetition_penalty: 1.12,
-        reasoning_effort: 'high'
+        reasoning_effort: 'high',
+        verify_claims: true,
+        self_critique: true,
+        require_citations: true,
+        consensus_search: true,
+        coverage_threshold: 0.7,
+        max_plan_tools: 6,
+        memory_snippets: 10
       });
     } else if (preset === 'fast') {
       setHyperparams({
@@ -136,7 +154,38 @@ export const ArchitectureEngine: React.FC = () => {
         top_p: 1.0,
         top_k: 1,
         repetition_penalty: 1.0,
-        reasoning_effort: 'low'
+        reasoning_effort: 'low',
+        verify_claims: false,
+        self_critique: false,
+        require_citations: false,
+        consensus_search: false,
+        coverage_threshold: 0.35,
+        max_plan_tools: 2,
+        memory_snippets: 3,
+        use_crew: false,
+        writer_temperature: 0.0
+      });
+    } else if (preset === 'smarter') {
+      setHyperparams({
+        ...DEFAULT_HYPERPARAMS,
+        temperature: 0.22,
+        top_p: 0.9,
+        top_k: 30,
+        min_p: 0.04,
+        repetition_penalty: 1.12,
+        reasoning_effort: 'high',
+        verify_claims: true,
+        self_critique: true,
+        require_citations: true,
+        consensus_search: true,
+        coverage_threshold: 0.72,
+        max_plan_tools: 6,
+        memory_snippets: 12,
+        use_crew: true,
+        planner_temperature: 0.05,
+        writer_temperature: 0.18,
+        max_new_tokens: 3072,
+        context_window: 16384
       });
     }
   };
@@ -322,6 +371,20 @@ export const ArchitectureEngine: React.FC = () => {
                   <div className={`text-[11px] ${colors.textMuted}`}>Normalization</div>
                   <div className="text-base font-bold text-cyan-300 mt-1">{selectedBlueprint.spec.norm_type}</div>
                 </div>
+                <div className="p-3 rounded-lg bg-black/30 border border-zinc-800/80">
+                  <div className={`text-[11px] ${colors.textMuted}`}>RoPE θ</div>
+                  <div className="text-base font-bold text-cyan-300 mt-1">{selectedBlueprint.spec.rope_theta.toLocaleString()}</div>
+                </div>
+                <div className="p-3 rounded-lg bg-black/30 border border-zinc-800/80">
+                  <div className={`text-[11px] ${colors.textMuted}`}>Sliding window</div>
+                  <div className="text-base font-bold text-cyan-300 mt-1">{selectedBlueprint.spec.sliding_window || 'full'}</div>
+                </div>
+                <div className="p-3 rounded-lg bg-black/30 border border-zinc-800/80">
+                  <div className={`text-[11px] ${colors.textMuted}`}>QK-Norm / FlashAttn</div>
+                  <div className="text-base font-bold text-cyan-300 mt-1">
+                    {selectedBlueprint.spec.qk_norm ? 'qk' : 'off'} / {selectedBlueprint.spec.use_flash_attn ? 'yes' : 'no'}
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -356,6 +419,12 @@ export const ArchitectureEngine: React.FC = () => {
               className="px-3 py-1 rounded-lg text-xs bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700"
             >
               Deterministic Fast (T: 0.0)
+            </button>
+            <button
+              onClick={() => applyPreset('smarter')}
+              className="px-3 py-1 rounded-lg text-xs bg-amber-500/20 text-amber-200 border border-amber-500/30 hover:bg-amber-500/30"
+            >
+              Smarter Agent (verify + critique + consensus)
             </button>
           </div>
 
@@ -486,6 +555,124 @@ export const ArchitectureEngine: React.FC = () => {
                     </button>
                   ))}
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={`p-5 rounded-xl border ${colors.border} ${colors.bgPanel} space-y-4`}>
+            <h3 className="font-semibold text-sm flex items-center gap-2">
+              <Activity className="w-4 h-4 text-amber-400" />
+              Agent intelligence (applied to live /chat)
+            </h3>
+            <p className={`text-[11px] ${colors.textMuted}`}>
+              Saved to this browser and sent with every Chat request. These change tool hops, citations, and sampling — not just the studio UI.
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+              {(
+                [
+                  ['verify_claims', 'Verify claims'],
+                  ['self_critique', 'Self-critique'],
+                  ['require_citations', 'Require citations'],
+                  ['consensus_search', 'Consensus search'],
+                  ['use_crew', 'Crew orchestra']
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(hyperparams[key])}
+                    onChange={(e) => setHyperparams({ ...hyperparams, [key]: e.target.checked })}
+                    className="rounded accent-amber-500"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <div className="flex justify-between text-xs mb-1.5">
+                  <span>Coverage threshold</span>
+                  <span className="font-mono text-amber-400">{hyperparams.coverage_threshold.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.2"
+                  max="0.9"
+                  step="0.05"
+                  value={hyperparams.coverage_threshold}
+                  onChange={(e) =>
+                    setHyperparams({ ...hyperparams, coverage_threshold: parseFloat(e.target.value) })
+                  }
+                  className="w-full accent-amber-500"
+                />
+              </div>
+              <div>
+                <div className="flex justify-between text-xs mb-1.5">
+                  <span>Max plan tools</span>
+                  <span className="font-mono text-amber-400">{hyperparams.max_plan_tools}</span>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="8"
+                  step="1"
+                  value={hyperparams.max_plan_tools}
+                  onChange={(e) =>
+                    setHyperparams({ ...hyperparams, max_plan_tools: parseInt(e.target.value) })
+                  }
+                  className="w-full accent-amber-500"
+                />
+              </div>
+              <div>
+                <div className="flex justify-between text-xs mb-1.5">
+                  <span>Memory snippets</span>
+                  <span className="font-mono text-amber-400">{hyperparams.memory_snippets}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="16"
+                  step="1"
+                  value={hyperparams.memory_snippets}
+                  onChange={(e) =>
+                    setHyperparams({ ...hyperparams, memory_snippets: parseInt(e.target.value) })
+                  }
+                  className="w-full accent-amber-500"
+                />
+              </div>
+              <div>
+                <div className="flex justify-between text-xs mb-1.5">
+                  <span>Planner temperature</span>
+                  <span className="font-mono text-amber-400">{hyperparams.planner_temperature.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={hyperparams.planner_temperature}
+                  onChange={(e) =>
+                    setHyperparams({ ...hyperparams, planner_temperature: parseFloat(e.target.value) })
+                  }
+                  className="w-full accent-amber-500"
+                />
+              </div>
+              <div>
+                <div className="flex justify-between text-xs mb-1.5">
+                  <span>Writer temperature</span>
+                  <span className="font-mono text-amber-400">{hyperparams.writer_temperature.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="1.5"
+                  step="0.05"
+                  value={hyperparams.writer_temperature}
+                  onChange={(e) =>
+                    setHyperparams({ ...hyperparams, writer_temperature: parseFloat(e.target.value) })
+                  }
+                  className="w-full accent-amber-500"
+                />
               </div>
             </div>
           </div>

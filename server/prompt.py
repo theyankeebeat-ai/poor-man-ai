@@ -150,12 +150,12 @@ def digest_obs(name: str, text: str, limit: int = 700) -> str:
     return raw[:limit] + "…"
 
 
-def memory_block(message: str) -> str:
-    return snippets(message, limit=6)
+def memory_block(message: str, limit: int = 6) -> str:
+    return snippets(message, limit=max(0, int(limit)))
 
 
-def build_system(mode: str, message: str, extras: str = "") -> str:
-    mem = memory_block(message)
+def build_system(mode: str, message: str, extras: str = "", memory_limit: int = 6) -> str:
+    mem = memory_block(message, limit=memory_limit)
     skills = skill_prompt_for(mode, message)
     parts = [SYSTEM_CORE, "Active skills:\n" + skills]
     if mem:

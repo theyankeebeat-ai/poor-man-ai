@@ -13,6 +13,7 @@ from server.crew.orchestra import run_crew
 from server.local_brain import SIMPLE_PKG_RE, plan_text
 from server.mcp.hooks import HookCtx, coverage, run_hooks
 from server.parallel import run_many
+from server.architecture import intelligence_prompt_extras, resolve_intelligence
 from server.prompt import build_system, compress_history, digest_obs
 from server.reason import Plan, Turn, plan_from
 from server.research import gather
@@ -401,6 +402,7 @@ async def run_agent(
     history: list[dict[str, Any]] | None = None,
     mode_override: str | None = None,
     thinking_level: str | None = "medium",
+    intelligence: dict[str, Any] | None = None,
 ) -> AsyncIterator[str]:
     t0 = time.perf_counter()
     t_first_plan = 0
@@ -435,6 +437,9 @@ async def run_agent(
         return
     cap = min(max(int(max_steps), 0), 32)
     t_level = (thinking_level or "medium").lower()
+    hp = resolve_intelligence(t_level, intelligence)
+    if not hp.use_crew:
+        thought["needs_crew"] = False
     if t_level == "low":
         cap = min(cap, 5)
     elif t_level == "high":
@@ -483,11 +488,11 @@ async def run_agent(
     active_tools = tools_for_mode(mode)
     extras = (
         f"This turn: kind={intent.get('kind')}, mode={mode}, max_steps={cap}, "
-        f"thinking_effort={t_level}, "
         f"follow_up={thread.get('follow_up')}, place={thread.get('location') or 'none'}, "
-        f"units={thread.get('units')}."
+        f"units={thread.get('units')}. "
+        + intelligence_prompt_extras(hp)
     )
-    sys = build_system(mode, message, extras)
+    sys = build_system(mode, message, extras, memory_limit=hp.memory_snippets)
     messages: list[dict[str, Any]] = [{"role": "system", "content": sys}]
     for t in turns:
         messages.append({"role": t.role, "content": t.text})
@@ -557,11 +562,11 @@ async def run_agent(
                             "content": (
                                 "Write a JSON plan only: "
                                 '{"goal":"...","tools":[{"name":"...","q":"...","url":"..."}],'
-                                '"need_second_think":false}. Max 4 tools. No prose.'
+                                f'"need_second_think":false}}. Max {hp.max_plan_tools} tools. No prose.'
                             ),
                         }
                     ],
-                    temperature=0.1,
+                    temperature=hp.planner_temperature,
                     max_tokens=256,
                 )
                 n_llm += 1
@@ -633,8 +638,10 @@ async def run_agent(
             elif observations:
                 cov = coverage(message, observations)
                 names = [n for n, _ in observations]
-                if cov < 0.55 and "gap_search" not in names and step < cap - 1:
+                if cov < hp.coverage_threshold and "gap_search" not in names and step < cap - 1:
                     nudge = "Coverage is thin. Call gap_search once, then final_answer."
+                elif hp.consensus_search and "compare_sources" not in names and "gap_search" not in names and step < cap - 2:
+                    nudge = "Consensus mode: call compare_sources or gap_search to cross-check, then final_answer."
                 elif "final_answer" not in names:
                     nudge = "You have evidence. Call final_answer, then stop. Do not dump JSON."
                 else:
@@ -646,8 +653,8 @@ async def run_agent(
                     messages=messages + ([{"role": "system", "content": nudge}] if nudge else []),
                     tools=active_tools,
                     tool_choice="auto",
-                    temperature=0.2,
-                    max_tokens=1024 if step == 0 else 2048,
+                    temperature=hp.writer_temperature if step else hp.planner_temperature,
+                    max_tokens=min(hp.max_new_tokens, 1024 if step == 0 else hp.max_new_tokens),
                 )
             except Exception as e:
                 err_str = str(e)
@@ -778,10 +785,18 @@ async def run_agent(
             + [
                 {
                     "role": "user",
-                    "content": "Max steps reached. Give the best answer you can, with citations.",
+                    "content": (
+                        "Max steps reached. Give the best answer you can"
+                        + (", with citations." if hp.require_citations else ".")
+                        + (
+                            " Then self-critique: list one possible error and correct it in the final prose."
+                            if hp.self_critique
+                            else ""
+                        )
+                    ),
                 }
             ],
-            temperature=0.2,
+            temperature=hp.writer_temperature,
         )
         n_llm += 1
         final_text = unwrap_answer_payload(wrap.choices[0].message.content or "")

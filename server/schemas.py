@@ -10,6 +10,23 @@ class ChatTurn(BaseModel):
     text: str = ""
 
 
+class IntelligenceParams(BaseModel):
+    temperature: Optional[float] = Field(default=None, ge=0.0, le=2.0)
+    top_p: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    top_k: Optional[int] = Field(default=None, ge=1, le=200)
+    max_new_tokens: Optional[int] = Field(default=None, ge=64, le=8192)
+    verify_claims: Optional[bool] = None
+    self_critique: Optional[bool] = None
+    require_citations: Optional[bool] = None
+    consensus_search: Optional[bool] = None
+    coverage_threshold: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    max_plan_tools: Optional[int] = Field(default=None, ge=1, le=8)
+    memory_snippets: Optional[int] = Field(default=None, ge=0, le=24)
+    use_crew: Optional[bool] = None
+    planner_temperature: Optional[float] = Field(default=None, ge=0.0, le=2.0)
+    writer_temperature: Optional[float] = Field(default=None, ge=0.0, le=2.0)
+
+
 class ChatRequest(BaseModel):
     message: str
     max_steps: int = Field(default=8, ge=0, le=32)
@@ -17,6 +34,7 @@ class ChatRequest(BaseModel):
     workspace: Optional[str] = None
     mode: Optional[str] = None
     thinking_level: Optional[str] = Field(default="medium", description="Thinking effort: low, medium, or high")
+    intelligence: Optional[IntelligenceParams] = None
 
 class TTSRequest(BaseModel):
     text: str

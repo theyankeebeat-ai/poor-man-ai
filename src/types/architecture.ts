@@ -17,6 +17,11 @@ export interface ArchitectureSpec {
   activation: string;
   rope_theta: number;
   tie_word_embeddings: boolean;
+  sliding_window: number;
+  qk_norm: boolean;
+  use_flash_attn: boolean;
+  dropout: number;
+  attention_dropout: number;
 }
 
 export interface ArchitectureBlueprint {
@@ -43,6 +48,61 @@ export interface HyperparametersConfig {
   context_window: number;
   seed?: number;
   reasoning_effort: 'low' | 'medium' | 'high';
+  verify_claims: boolean;
+  self_critique: boolean;
+  require_citations: boolean;
+  consensus_search: boolean;
+  coverage_threshold: number;
+  max_plan_tools: number;
+  memory_snippets: number;
+  use_crew: boolean;
+  planner_temperature: number;
+  writer_temperature: number;
+}
+
+export const INTEL_STORAGE_KEY = 'poor_man_ai_intelligence_v1';
+
+export const DEFAULT_HYPERPARAMS: HyperparametersConfig = {
+  temperature: 0.7,
+  top_p: 0.95,
+  top_k: 40,
+  min_p: 0.05,
+  repetition_penalty: 1.1,
+  frequency_penalty: 0.0,
+  presence_penalty: 0.0,
+  max_new_tokens: 2048,
+  context_window: 8192,
+  seed: 42,
+  reasoning_effort: 'medium',
+  verify_claims: true,
+  self_critique: false,
+  require_citations: true,
+  consensus_search: false,
+  coverage_threshold: 0.55,
+  max_plan_tools: 4,
+  memory_snippets: 6,
+  use_crew: true,
+  planner_temperature: 0.1,
+  writer_temperature: 0.2
+};
+
+export function intelligencePayload(hp: HyperparametersConfig) {
+  return {
+    temperature: hp.temperature,
+    top_p: hp.top_p,
+    top_k: hp.top_k,
+    max_new_tokens: hp.max_new_tokens,
+    verify_claims: hp.verify_claims,
+    self_critique: hp.self_critique,
+    require_citations: hp.require_citations,
+    consensus_search: hp.consensus_search,
+    coverage_threshold: hp.coverage_threshold,
+    max_plan_tools: hp.max_plan_tools,
+    memory_snippets: hp.memory_snippets,
+    use_crew: hp.use_crew,
+    planner_temperature: hp.planner_temperature,
+    writer_temperature: hp.writer_temperature
+  };
 }
 
 export interface QuantizationConfig {

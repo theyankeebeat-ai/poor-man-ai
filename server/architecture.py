@@ -49,6 +49,11 @@ class ArchitectureSpec:
     activation: str = "SwiGLU"
     rope_theta: float = 10000.0
     tie_word_embeddings: bool = False
+    sliding_window: int = 0
+    qk_norm: bool = False
+    use_flash_attn: bool = True
+    dropout: float = 0.0
+    attention_dropout: float = 0.0
 
     def estimate_parameter_count(self) -> int:
         embed_params = self.vocab_size * self.hidden_dim
@@ -105,6 +110,17 @@ class Hyperparameters:
     context_window: int = 8192
     seed: Optional[int] = 42
     reasoning_effort: str = "medium"
+    # Agent intelligence knobs (wired into /chat, not studio-only)
+    verify_claims: bool = True
+    self_critique: bool = False
+    require_citations: bool = True
+    consensus_search: bool = False
+    coverage_threshold: float = 0.55
+    max_plan_tools: int = 4
+    memory_snippets: int = 6
+    use_crew: bool = True
+    planner_temperature: float = 0.1
+    writer_temperature: float = 0.2
 
 
 @dataclass
@@ -163,6 +179,23 @@ PRESET_ARCHITECTURES: Dict[str, ArchitectureSpec] = {
         vocab_size=32000,
         max_context_length=16384,
         intermediate_dim=8192,
+        qk_norm=True,
+        use_flash_attn=True,
+    ),
+    "poor_man_7b": ArchitectureSpec(
+        name="PoorMan-Thinker-7B",
+        family=ModelFamily.TRANSFORMER_DECODER,
+        hidden_dim=4096,
+        num_layers=32,
+        num_attention_heads=32,
+        num_kv_heads=8,
+        vocab_size=128256,
+        max_context_length=32768,
+        intermediate_dim=14336,
+        rope_theta=500000.0,
+        qk_norm=True,
+        use_flash_attn=True,
+        sliding_window=8192,
     ),
     "poor_man_moe_8x1b": ArchitectureSpec(
         name="PoorMan-MoE-8x1B",
@@ -210,16 +243,100 @@ PRESET_HYPERPARAMETERS: Dict[str, Hyperparameters] = {
         top_p=0.90,
         top_k=40,
         repetition_penalty=1.12,
-        reasoning_effort="high"
+        reasoning_effort="high",
+        verify_claims=True,
+        self_critique=True,
+        require_citations=True,
+        consensus_search=True,
+        coverage_threshold=0.70,
+        max_plan_tools=6,
+        memory_snippets=10,
+        writer_temperature=0.25,
     ),
     "fast_heuristic": Hyperparameters(
         temperature=0.0,
         top_p=1.0,
         top_k=1,
         repetition_penalty=1.0,
-        reasoning_effort="low"
-    )
+        reasoning_effort="low",
+        verify_claims=False,
+        self_critique=False,
+        require_citations=False,
+        consensus_search=False,
+        coverage_threshold=0.35,
+        max_plan_tools=2,
+        memory_snippets=3,
+        use_crew=False,
+        writer_temperature=0.0,
+    ),
+    "smarter_agent": Hyperparameters(
+        temperature=0.22,
+        top_p=0.90,
+        top_k=30,
+        min_p=0.04,
+        repetition_penalty=1.12,
+        reasoning_effort="high",
+        verify_claims=True,
+        self_critique=True,
+        require_citations=True,
+        consensus_search=True,
+        coverage_threshold=0.72,
+        max_plan_tools=6,
+        memory_snippets=12,
+        use_crew=True,
+        planner_temperature=0.05,
+        writer_temperature=0.18,
+        max_new_tokens=3072,
+        context_window=16384,
+    ),
 }
+
+
+THINKING_DEFAULTS: Dict[str, Hyperparameters] = {
+    "low": PRESET_HYPERPARAMETERS["fast_heuristic"],
+    "medium": Hyperparameters(),
+    "high": PRESET_HYPERPARAMETERS["smarter_agent"],
+}
+
+
+def resolve_intelligence(thinking_level: str | None = "medium", overrides: Optional[Dict[str, Any]] = None) -> Hyperparameters:
+    """Merge thinking-level defaults with optional request/studio overrides."""
+    base = THINKING_DEFAULTS.get((thinking_level or "medium").lower(), THINKING_DEFAULTS["medium"])
+    data = asdict(base)
+    data["reasoning_effort"] = (thinking_level or "medium").lower()
+    if overrides:
+        for k, v in overrides.items():
+            if v is None or k not in data:
+                continue
+            data[k] = v
+    return Hyperparameters(**data)
+
+
+def intelligence_prompt_extras(hp: Hyperparameters) -> str:
+    bits = [
+        f"thinking_effort={hp.reasoning_effort}",
+        f"coverage_min={hp.coverage_threshold}",
+        f"max_plan_tools={hp.max_plan_tools}",
+        f"verify_claims={'on' if hp.verify_claims else 'off'}",
+        f"self_critique={'on' if hp.self_critique else 'off'}",
+        f"citations={'required' if hp.require_citations else 'optional'}",
+        f"consensus={'on' if hp.consensus_search else 'off'}",
+        f"crew={'on' if hp.use_crew else 'off'}",
+    ]
+    rules: List[str] = []
+    if hp.require_citations:
+        rules.append("Cite source URLs for factual claims; do not invent links.")
+    if hp.verify_claims:
+        rules.append("Before final_answer, sanity-check numbers, tickers, and dates against observations.")
+    if hp.self_critique:
+        rules.append("After drafting, silently critique: missed edge cases, contradictions, missing citations — then fix.")
+    if hp.consensus_search:
+        rules.append("Prefer multi-source tools (financial_compare, gap_search, compare_sources) over a single hit.")
+    if hp.reasoning_effort == "high":
+        rules.append("High effort: verify code/lint, cross-check citations, handle edge cases before stopping.")
+    elif hp.reasoning_effort == "low":
+        rules.append("Low effort: concise answer, skip exploratory tool hops unless required.")
+    return "Intelligence: " + ", ".join(bits) + "." + ((" " + " ".join(rules)) if rules else "")
 
 
 def get_architecture_blueprint(arch_key: str) -> Dict[str, Any]:
