@@ -18,7 +18,8 @@ import {
   DatabaseEngine,
   WebBrowserEngine,
   WebAIEngine,
-  ArchitectureEngine
+  ArchitectureEngine,
+  RealAIEngine
 } from './engines';
 import { ThemeProvider, useTheme, THEMES, ThemeName } from './ThemeContext';
 import {
@@ -34,7 +35,8 @@ import {
   Database,
   Globe,
   Network,
-  Cpu
+  Cpu,
+  Sparkles
 } from 'lucide-react';
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -45,6 +47,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navItems = [
     { path: '/agent', label: 'Agent Workflow', icon: <GitMerge className="w-3.5 h-3.5" /> },
     { path: '/chat', label: 'Chat Assistant', icon: <MessageSquare className="w-3.5 h-3.5" /> },
+    { path: '/real-ai', label: 'Real AI Studio', icon: <Sparkles className="w-3.5 h-3.5" /> },
     { path: '/architecture', label: 'Architecture & Tuning', icon: <Cpu className="w-3.5 h-3.5" /> },
     { path: '/webai', label: 'Web AI', icon: <Network className="w-3.5 h-3.5" /> },
     { path: '/browser', label: 'Web Browser', icon: <Globe className="w-3.5 h-3.5" /> },
@@ -150,6 +153,7 @@ export const App: React.FC = () => {
             <Route path="/" element={<Navigate to="/agent" replace />} />
             <Route path="/agent" element={<AIAgentInterface />} />
             <Route path="/chat" element={<AIChatInterface />} />
+            <Route path="/real-ai" element={<RealAIEngine />} />
             <Route path="/architecture" element={<ArchitectureEngine />} />
             <Route path="/webai" element={<WebAIEngine />} />
             <Route path="/browser" element={<WebBrowserEngine />} />

@@ -456,6 +456,16 @@ async def run_agent(
             thought["skip_grok"] = False
             thought["cheap_text"] = None
             thought["max_steps"] = max(int(thought.get("max_steps") or 0), 16)
+
+    # Real AI Guardrail evaluation
+    from server.real_ai import evaluate_prompt_safety
+    safety_check = evaluate_prompt_safety(message)
+    if not safety_check["passed"]:
+        yield _sse({"type": "plan", "text": "🛡️ Safety Guardrail Triggered: Adversarial prompt injection detected. Sanitizing input."})
+        yield _sse({"type": "token", "text": "I detected an adversarial instruction or prompt injection attempt. For security and alignment, I will proceed following standard safety guidelines."})
+        yield _sse({"type": "done", "text": ""})
+        return
+
     # Bare "run yarn/npm install" — execute locally; skip Grok howto / poison cache.
     if _simple_pkg_cmd(message):
         thought["mode"] = "code"

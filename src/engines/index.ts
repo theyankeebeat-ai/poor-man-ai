@@ -7,3 +7,4 @@ export { default as DatabaseEngine } from './DatabaseEngine';
 export { default as WebBrowserEngine } from './WebBrowserEngine';
 export { default as WebAIEngine } from './WebAIEngine';
 export { default as ArchitectureEngine } from './ArchitectureEngine';
+export { default as RealAIEngine } from './RealAIEngine';

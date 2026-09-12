@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "start": "yarn dev",
-    "dev": "concurrently -n web,api -c cyan,magenta \"vite\" \"python -m uvicorn server.main:app --reload --app-dir . --host 127.0.0.1 --port 8000\"",
+    "dev": "concurrently -n web,api,node -c cyan,magenta,yellow \"vite\" \"python -m uvicorn server.main:app --reload --app-dir . --host 127.0.0.1 --port 8000\" \"node cli/node_gateway.mjs\"",
     "dev:web": "vite",
     "dev:api": "python -m uvicorn server.main:app --reload --app-dir . --host 127.0.0.1 --port 8000",
+    "dev:node": "node cli/node_gateway.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },

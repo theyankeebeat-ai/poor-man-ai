@@ -1364,6 +1364,67 @@ def _register_mcp() -> None:
 _register_mcp()
 
 
+async def _run_rag_search(args: dict[str, Any]) -> str:
+    from server.real_ai import vector_store
+    q = str(args.get("query") or "").strip()
+    top_k = int(args.get("top_k") or 3)
+    if not q:
+        return "error: empty query"
+    results = vector_store.search(q, top_k=top_k)
+    if not results:
+        return f"no semantic matches found for '{q}' in local RAG index"
+    formatted = [f"[{r['id']}] (score: {r['hybrid_score']}): {r['content']}" for r in results]
+    return "\n---\n".join(formatted)
+
+
+async def _run_rag_index(args: dict[str, Any]) -> str:
+    from server.real_ai import vector_store
+    content = str(args.get("content") or "").strip()
+    metadata = args.get("metadata") or {}
+    if not content:
+        return "error: empty content"
+    doc = vector_store.add_document(content, metadata)
+    return f"Indexed knowledge chunk [{doc.id}], vector size {len(doc.embedding)} dims."
+
+
+RAG_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "rag_search",
+            "description": "Performs local semantic vector search across indexed knowledge docs, playbooks, and facts.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Semantic search query or topic to find."},
+                    "top_k": {"type": "integer", "description": "Number of relevant chunks to retrieve (default 3)."}
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "rag_index",
+            "description": "Embeds and stores a new knowledge document into the local RAG vector store.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "content": {"type": "string", "description": "Text chunk or technical documentation to index."}
+                },
+                "required": ["content"]
+            }
+        }
+    }
+]
+
+TOOLS.extend(RAG_TOOLS)
+RUNNERS["rag_search"] = _run_rag_search
+RUNNERS["rag_index"] = _run_rag_index
+
+
+
 def _register_code() -> None:
     from server.code_tools import CODE_RUNNERS, CODE_TOOLS
 

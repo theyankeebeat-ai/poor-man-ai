@@ -339,3 +339,88 @@ async def upload_file(file: UploadFile = File(...)):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {e}")
+
+
+# ===========================================================================
+# Real AI Gateway, RAG Vector Search & Guardrail Endpoints
+# ===========================================================================
+
+from server.real_ai import (
+    get_available_providers,
+    vector_store,
+    evaluate_prompt_safety,
+    scrub_pii,
+    compute_dense_embedding
+)
+
+@app.get("/api/real-ai/providers")
+def get_ai_providers():
+    """Lists standard and real AI providers (Gemini, Groq, Ollama, OpenAI, xAI, OpenRouter)."""
+    return {
+        "providers": get_available_providers(),
+        "timestamp": time.time()
+    }
+
+
+@app.get("/api/real-ai/rag/documents")
+def list_rag_documents():
+    """Returns indexed RAG vector knowledge chunks."""
+    docs = [
+        {
+            "id": d.id,
+            "content": d.content,
+            "metadata": d.metadata,
+            "embedding_dims": len(d.embedding),
+            "created_at": d.created_at
+        }
+        for d in vector_store.documents.values()
+    ]
+    return {"total": len(docs), "documents": docs}
+
+
+@app.post("/api/real-ai/rag/index")
+async def index_rag_document(req: Request):
+    """Indexes knowledge content into vector semantic search store."""
+    payload = await req.json()
+    content = payload.get("content", "").strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Content cannot be empty.")
+    metadata = payload.get("metadata", {})
+    doc = vector_store.add_document(content=content, metadata=metadata)
+    return {
+        "status": "indexed",
+        "document_id": doc.id,
+        "embedding_dims": len(doc.embedding),
+        "created_at": doc.created_at
+    }
+
+
+@app.post("/api/real-ai/rag/search")
+async def search_rag(req: Request):
+    """Semantic vector search across knowledge base with hybrid cosine similarity."""
+    payload = await req.json()
+    query = payload.get("query", "").strip()
+    top_k = int(payload.get("top_k", 4))
+    min_score = float(payload.get("min_score", 0.1))
+    if not query:
+        raise HTTPException(status_code=400, detail="Query cannot be empty.")
+    matches = vector_store.search(query=query, top_k=top_k, min_score=min_score)
+    return {
+        "query": query,
+        "matches_count": len(matches),
+        "results": matches
+    }
+
+
+@app.post("/api/real-ai/guardrails/evaluate")
+async def evaluate_safety(req: Request):
+    """Evaluates prompt against jailbreak injections and scans for PII leaks."""
+    payload = await req.json()
+    text = payload.get("text", "")
+    evaluation = evaluate_prompt_safety(text)
+    scrubbed = scrub_pii(text)
+    return {
+        **evaluation,
+        "scrubbed_text": scrubbed
+    }
+

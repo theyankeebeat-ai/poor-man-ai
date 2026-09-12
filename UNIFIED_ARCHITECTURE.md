@@ -10,13 +10,21 @@ Poor Man AI combines a high-performance **FastAPI backend with autonomous multi-
 
 ```
 Poor Man AI
+├── Node.js Gateway & MCP Host (Node.js 18+) -> port 3001
+│   ├── /api/node/health (Runtime stats, memory, V8 heap diagnostics)
+│   ├── /api/node/mcp/rpc (JSON-RPC MCP bridge & tools/call dispatcher: node_eval, node_system_specs)
+│   └── /api/node/inspect-package (Live workspace dependencies analyzer)
+│
 ├── Backend (FastAPI, Python 3.10+) -> port 8000
 │   ├── /chat (NDJSON streaming agent & code loops with dynamic thinking_level)
 │   ├── /health (Cache & server telemetry)
+│   ├── /api/real-ai/providers (Universal Multi-LLM provider registry: Gemini, Groq, Ollama, OpenAI, xAI, OpenRouter)
+│   ├── /api/real-ai/rag/index & /search (Dense vector pseudo-embeddings & hybrid cosine RAG search)
+│   ├── /api/real-ai/guardrails/evaluate (Prompt injection / DAN jailbreak auditor & PII redactor)
 │   ├── /memory (Persistent JSONL facts; lessons.jsonl distilled rules)
 │   ├── /model/architecture (Neural architecture blueprints, param counter & VRAM budgets)
 │   ├── /model/train (QLoRA/LoRA fine-tuning submission & blackboard tracking)
-│   ├── /tools (Live Python primitive & financial tools: financial_quote, financial_compare, financial_news)
+│   ├── /tools (Live Python primitive, financial tools & RAG tools: rag_search, rag_index)
 │   ├── /read-url & /api/read-url (Resilient web scraping & browser engine)
 │   ├── /mcp/skills (SOP skills: financial-markets, sports-schedule, continual-learn, learn-skill, web-reader, …)
 │   ├── /mcp/knowledge (Playbooks: financial-markets, sports-schedules, learned-runtime, skill-learning, …)
@@ -24,9 +32,10 @@ Poor Man AI
 │   ├── /tts & /tts/voices (Edge TTS neural speech synthesis)
 │   └── /upload (File, image & screen snapshot attachment ingestion)
 │
-└── Frontend (Vite, React 18, Tailwind, Lucide) -> port 5173
+└── Frontend (Vite, React 18 + TSX, Tailwind, Lucide) -> port 5173
+    ├── Real AI Studio (/real-ai) -> Universal LLM gateway, Vector RAG search & Guardrail inspector
     ├── Agent Workflow (/agent) -> Pipeline step inspection & simulation
-    ├── Chat Assistant (/chat) -> Live chat cockpit: Thinking effort (Fast/Standard/Deep; default Standard), multi-session drawer, copy answer/chat, Web Speech STT, Edge Neural TTS, and WebRTC Screen Sharing vision
+    ├── Chat Assistant (/chat) -> Live chat cockpit: Thinking effort, Web Speech STT, Edge Neural TTS, Screen Vision
     ├── Architecture & Tuning (/architecture) -> Neural specs, parameters, quantization & fine-tuning studio
     ├── Web AI (/webai) -> Multi-engine consensus formulation
     ├── Web Browser (/browser) -> Live web retrieval across DDG/Google/Bing/Yandex
@@ -555,3 +564,34 @@ plan.notes += "Learned: …"
 * Harvest stores **one short rule**, not the whole essay, and refuses junk/tool-error dumps.
 * `write_skill` / `write_knowledge` are sandboxed (name regex, ~24k body cap, existing tools only).
 * Growing `lessons.jsonl` makes **this machine** better at repeating its own procedures; it does not yield general intelligence.
+
+---
+
+## 13. Production Real AI Stack (Node.js Gateway, Python RAG/Guardrails, React TSX Studio)
+
+To elevate Poor Man AI into a fully functional, production-ready AI ecosystem, real AI enterprise capabilities have been integrated across Node.js, Python, and React TSX:
+
+### A. Node.js Agent Gateway & MCP JSON-RPC Server (`cli/node_gateway.mjs`)
+* **Node.js 18+ HTTP/JSON-RPC Host**: Runs on port 3001 (`yarn dev:node`).
+* **Model Context Protocol (MCP) Bridge**: Exposes standard `tools/list` and `tools/call` over JSON-RPC for executing JavaScript evaluation in isolated V8 context (`node_eval`) and system hardware telemetry (`node_system_specs`).
+* **Live Runtime Diagnostics**: `GET /api/node/health` provides real-time RSS, heap allocation, platform details, and active process metrics.
+* **Workspace Inspector**: `GET /api/node/inspect-package` exposes live project dependencies and manifest state to the orchestrator.
+
+### B. Python Real AI Engine (`server/real_ai.py`)
+1. **Universal LLM Providers Gateway (`/api/real-ai/providers`)**:
+   * Out-of-the-box registry for **Google Gemini** (`gemini-1.5-flash`, `gemini-1.5-pro`), **Groq LPU** (`llama-3.3-70b-versatile`), **Ollama** (`llama3.2:latest`, `deepseek-r1`), **OpenAI** (`gpt-4o-mini`, `o1-mini`), **xAI Grok** (`grok-beta`), and **OpenRouter**.
+   * Automatic environment key resolution, model routing, vision flags, and tool schema verification.
+2. **Dense Vector Embeddings & Local RAG Vector Store (`/api/real-ai/rag/*`)**:
+   * Deterministic 64-dimensional dense pseudo-embedding generator using locality-sensitive n-gram hashing—zero 2GB downloads or heavy torch requirements.
+   * Hybrid semantic search combining **cosine vector similarity** with token overlap matching.
+   * Direct agent tool integration (`rag_search`, `rag_index`) allowing autonomous indexing and recall of technical documentation, code snippets, and playbooks.
+3. **Safety Guardrails & Adversarial Injection Evaluator (`/api/real-ai/guardrails/evaluate`)**:
+   * Real-time regex and heuristic detection for DAN prompts, instruction overrides, and jailbreak injections before agent execution in `server/agent.py`.
+   * PII Redactor: Automatically scrubs emails, SSNs, credit card numbers, and raw API keys from prompt trajectories and memory stores.
+
+### C. React TSX Real AI Cockpit Studio (`src/engines/RealAIEngine.tsx`)
+* Dedicated route `/real-ai` accessible from top universal navigation bar.
+* **Tab 1: LLM Providers**: Live status cards showing active API keys, base endpoints, tool call support, and model selectors.
+* **Tab 2: Vector RAG**: Live chunk ingestion panel, vector size indicators, and interactive semantic search with cosine score visualizations.
+* **Tab 3: Guardrail Inspector**: Interactive prompt tester displaying pass/reject decisions, triggered safety rules, and sanitized PII output previews.
+
