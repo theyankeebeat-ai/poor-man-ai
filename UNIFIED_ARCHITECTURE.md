@@ -11,7 +11,7 @@ Poor Man AI combines a high-performance **FastAPI backend with autonomous multi-
 ```
 Poor Man AI
 ├── Backend (FastAPI, Python 3.10+) -> port 8000
-│   ├── /chat (NDJSON streaming agent & code loops)
+│   ├── /chat (NDJSON streaming agent & code loops with dynamic thinking_level)
 │   ├── /health (Cache & server telemetry)
 │   ├── /memory (Persistent JSONL facts)
 │   ├── /model/architecture (Neural architecture blueprints, param counter & VRAM budgets)
@@ -21,12 +21,12 @@ Poor Man AI
 │   ├── /mcp/skills (Dynamic MCP SOP skills including financial-markets)
 │   ├── /mcp/knowledge (Research playbooks including financial-markets)
 │   ├── /mcp/neurons (Layer & crew neural routing banks)
-│   ├── /tts & /tts/voices (Edge TTS speech synthesis)
-│   └── /upload (File & context attachment ingestion)
+│   ├── /tts & /tts/voices (Edge TTS neural speech synthesis)
+│   └── /upload (File, image & screen snapshot attachment ingestion)
 │
 └── Frontend (Vite, React 18, Tailwind, Lucide) -> port 5173
     ├── Agent Workflow (/agent) -> Pipeline step inspection & simulation
-    ├── Chat Assistant (/chat) -> Real-time NDJSON streaming UI with live trace
+    ├── Chat Assistant (/chat) -> Live chat cockpit: Thinking effort level (Fast/Standard/Deep), multi-session drawer, copy answer/chat, Web Speech STT, Edge Neural TTS, and WebRTC Screen Sharing vision
     ├── Architecture & Tuning (/architecture) -> Neural specs, parameters, quantization & fine-tuning studio
     ├── Web AI (/webai) -> Multi-engine consensus formulation
     ├── Web Browser (/browser) -> Live web retrieval across DDG/Google/Bing/Yandex
@@ -356,3 +356,93 @@ To enable Poor Man AI to scale its intelligence dynamically and operate on resou
 * **Tab 2: Hyperparameters**: Real-time sliders and quick presets for temperature, nucleus sampling, top-k, repetition penalties, max tokens, and reasoning depth levels.
 * **Tab 3: Quantization (INT4 / NF4)**: Low-bit compression selector covering AWQ, GPTQ, BitsAndBytes NF4, GGUF, group sizes, and double quantization toggles.
 * **Tab 4: Fine-Tuning (QLoRA)**: Studio panel to train Poor Man AI on local persistent memory (`server/data/memory.jsonl`) using LoRA / QLoRA adapters, custom ranks, and learning rate schedules.
+
+---
+
+## 10. Chat Assistant 2.0: Cognitive Effort, Voice Mode, WebRTC Screen Vision & Session Management
+
+To deliver an interactive assistant experience on par with frontier commercial chat systems while running strictly against local orchestrators and tools, the **Chat Assistant (`src/AIChatInterface.tsx`)** has been expanded into a full multimodal cockpit.
+
+### A. Dynamic Thinking Effort & Reasoning Level (Low / Medium / High)
+
+Rather than fixing the agent to a static loop depth, the user can dial reasoning effort on demand:
+
+```
+[UI Selector: Fast / Standard / Deep]
+       │
+       ▼ streamChat(..., { thinking_level: 'low' | 'medium' | 'high' })
+[FastAPI /chat] -> ChatRequest.thinking_level
+       │
+       ▼ run_agent(..., thinking_level='...')
+[Agent Loop Orchestrator (`server/agent.py`)]
+       ├── Low (Fast): cap = min(cap, 5), lightweight synthesis, minimal tool hops
+       ├── Medium (Standard): cap = 10, balanced research & tool execution
+       └── High (Deep): cap = max(cap, 16), deep reflection, edge-case analysis & bug verification
+```
+
+* **System Prompt Injection**: When `thinking_level` is set to `high`, `server/agent.py` appends `thinking_effort=high` and prompts the model to thoroughly verify code logic, lint output, and cross-reference citations before terminating. When set to `low`, it prioritizes concise answers without triggering unnecessary exploratory tool hops.
+
+### B. Multi-Session Conversation Management & New Chat
+
+* **State Isolation**: Conversations are decoupled into distinct `ChatSession` records:
+  ```typescript
+  export interface ChatSession {
+    id: string;
+    title: string;
+    updatedAt: number;
+    messages: ChatMessage[];
+    mode: 'agent' | 'code';
+    thinkingLevel: 'low' | 'medium' | 'high';
+  }
+  ```
+* **Persistence & History Drawer**:
+  * Sessions are serialized to browser `localStorage` (`poor_man_chat_sessions_v2`).
+  * Clicking **`+ New Chat`** seeds a new conversation thread without purging historical discussions.
+  * A dropdown drawer allows users to switch between saved conversations, view timestamps, and delete individual conversation threads.
+  * The session title automatically adapts to the user's first prompt (truncated to 32 characters).
+
+### C. One-Click Copy System & Markdown Export
+
+* **Per-Message Copy**:
+  * Hovering/clicking the copy icon on any user or assistant message bubble extracts the raw Markdown prose (stripping tool invocation traces and UI wrappers) and copies it to the system clipboard, displaying an animated green checkmark for visual confirmation.
+* **Full Transcript Export**:
+  * The **`Copy Chat`** button in the navigation header generates a structured Markdown document of the entire active session with timestamps and role badges (`User` / `Poor Man AI Assistant`), making it trivial to archive or share conversations.
+
+### D. Local Voice Mode (Microphone STT & Neural TTS)
+
+Poor Man AI incorporates a dual-engine voice subsystem operating directly in the browser with zero external cloud dependencies:
+
+1. **Speech-to-Text (Microphone)**:
+   * Powered by the browser's native Web Speech API (`SpeechRecognition` / `webkitSpeechRecognition`).
+   * Activating the microphone provides real-time streaming speech-to-text directly into the message input.
+   * Visual feedback includes an animated red pulse and a dynamic *"Listening to your voice..."* placeholder.
+2. **Text-to-Speech (Speaker)**:
+   * Assistant messages include a speaker toggle button that converts response text into natural audio.
+   * **Primary Pipeline**: Routes text to FastAPI `/tts` powered by Microsoft Edge Neural TTS (`edge_tts`), streaming MP3 audio into an in-memory `Blob` and `Audio` object.
+   * **Speech Sanitization**: Strips backtick code blocks, URLs, and markdown formatting before passing prose to the synthesis engine to ensure natural auditory delivery.
+   * **Browser Fallback**: Automatically cascades to `window.speechSynthesis` if the backend TTS service is unavailable.
+3. **Hands-Free Auto Voice Mode**:
+   * A **`Voice Mode`** toggle in the toolbar enables continuous interaction: as soon as the assistant finishes generating a response, it automatically speaks the result aloud.
+
+### E. WebRTC Screen Sharing & Visual Frame Analysis ("Eyes for Poor Man AI")
+
+To allow Poor Man AI to inspect local code editors, terminal windows, browser tabs, and debugging consoles, live screen sharing has been unified with the vision pipeline:
+
+```
+[User Browser Screen]
+       │
+       ▼ navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })
+[Local WebRTC Video Track in <video autoPlay>]
+       │
+       ▼ User clicks "Capture & Ask AI"
+[HTML5 Canvas Snapshot (1280x720 PNG Blob)]
+       │
+       ▼ uploadFile() -> POST /upload (`server/main.py`)
+[Saved to server/data/uploads/<hash>.png]
+       │
+       ▼ Prompt Injected: "[Attached image: /static/uploads/...] Analyze what is shown on screen"
+[Agent reads image with read_image tool via Vision LLM]
+```
+
+* **Live Stream Dock**: When screen sharing is active, a floating video feed thumbnail with a blinking `LIVE` badge appears at the top of the chat.
+* **Autonomous Vision Inspection**: The captured snapshot is ingested through `/upload`, generating a static preview URL. When submitted, the backend agent's `read_image` tool (`server/tools.py`) inspects the pixels using local vision or API endpoints to detect syntax errors, UI bugs, or diagram structures directly from the user's screen.

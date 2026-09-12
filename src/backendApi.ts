@@ -15,7 +15,7 @@ export async function streamChat(
   signal: AbortSignal,
   onEvent: (ev: AgentEvent) => void,
   history: { role: string; text: string }[] = [],
-  opts: { workspace?: string; mode?: string } = {},
+  opts: { workspace?: string; mode?: string; thinking_level?: 'low' | 'medium' | 'high' } = {},
 ): Promise<void> {
   const r = await fetch(`${API}/chat`, {
     method: "POST",
@@ -26,6 +26,7 @@ export async function streamChat(
       history,
       workspace: opts.workspace || undefined,
       mode: opts.mode || undefined,
+      thinking_level: opts.thinking_level || 'medium',
     }),
     signal,
   });

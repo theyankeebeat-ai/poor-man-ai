@@ -209,6 +209,7 @@ async def chat(req: ChatRequest) -> StreamingResponse:
                 max_steps=max_steps,
                 history=[t.model_dump() for t in req.history],
                 mode_override=req.mode,
+                thinking_level=req.thinking_level or "medium",
             ):
                 yield line
         except (asyncio.CancelledError, GeneratorExit):

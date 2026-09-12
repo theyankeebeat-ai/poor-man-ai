@@ -400,6 +400,7 @@ async def run_agent(
     max_steps: int = 8,
     history: list[dict[str, Any]] | None = None,
     mode_override: str | None = None,
+    thinking_level: str | None = "medium",
 ) -> AsyncIterator[str]:
     t0 = time.perf_counter()
     t_first_plan = 0
@@ -433,6 +434,12 @@ async def run_agent(
             yield line
         return
     cap = min(max(int(max_steps), 0), 32)
+    t_level = (thinking_level or "medium").lower()
+    if t_level == "low":
+        cap = min(cap, 5)
+    elif t_level == "high":
+        cap = max(cap, 16)
+
     if thought.get("mode") == "code":
         # Lint→search→fix loops need more tool turns than a single patch.
         floor = 18 if _wants_lint_fix(message) else 12
@@ -476,6 +483,7 @@ async def run_agent(
     active_tools = tools_for_mode(mode)
     extras = (
         f"This turn: kind={intent.get('kind')}, mode={mode}, max_steps={cap}, "
+        f"thinking_effort={t_level}, "
         f"follow_up={thread.get('follow_up')}, place={thread.get('location') or 'none'}, "
         f"units={thread.get('units')}."
     )
