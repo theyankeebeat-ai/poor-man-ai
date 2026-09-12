@@ -77,6 +77,20 @@ _LOC_STOP = {
     "hello",
     "world",
     "program",
+    "is",
+    "are",
+    "was",
+    "were",
+    "it",
+    "does",
+    "will",
+    "can",
+    "or",
+    "and",
+    "right",
+    "now",
+    "currently",
+    "forecast",
 }
 
 
@@ -84,8 +98,10 @@ def location_from(text: str) -> str | None:
     m = re.search(r"\b(?:in|for|at|near)\s+(.+)", text, re.I)
     if not m:
         return None
+    # Stop at sentence terminators or punctuation
+    clause = re.split(r"[?!.,;\n]", m.group(1))[0]
     words: list[str] = []
-    for w in re.findall(r"[A-Za-z][\w'-]*", m.group(1)):
+    for w in re.findall(r"[A-Za-z][\w'-]*", clause):
         if w.lower() in _LOC_STOP:
             break
         words.append(w)

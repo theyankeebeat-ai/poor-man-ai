@@ -88,7 +88,7 @@ def _safe_local_path(path: str) -> Path:
 
 
 def _grok_cli_token() -> str | None:
-    """Use official Grok Build login (~/.grok/auth.json) when .env has no XAI_API_KEY."""
+    """Use official Grok Build login (~/.grok/auth.json) with auto-refresh when .env has no XAI_API_KEY."""
     auth = Path.home() / ".grok" / "auth.json"
     if not auth.is_file():
         return None
@@ -96,14 +96,74 @@ def _grok_cli_token() -> str | None:
         data = json.loads(auth.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
-    best: str | None = None
-    for rec in data.values() if isinstance(data, dict) else []:
+    if not isinstance(data, dict):
+        return None
+
+    from datetime import datetime, timezone, timedelta
+
+    for rec_key, rec in list(data.items()):
         if not isinstance(rec, dict):
             continue
+        expires_at_str = rec.get("expires_at")
+        needs_refresh = False
+        if expires_at_str:
+            try:
+                clean_ts = re.sub(r"(\.\d{6})\d+Z", r"\1+00:00", str(expires_at_str)).replace("Z", "+00:00")
+                exp_dt = datetime.fromisoformat(clean_ts)
+                if datetime.now(timezone.utc).timestamp() >= exp_dt.timestamp() - 300:
+                    needs_refresh = True
+            except Exception:
+                pass
+
+        if not needs_refresh:
+            key = rec.get("key") or rec.get("access_token") or rec.get("api_key")
+            if isinstance(key, str) and key.strip():
+                return key.strip()
+
+        # Token is expired or needs refresh — attempt OIDC refresh
+        refresh_token = rec.get("refresh_token")
+        client_id = rec.get("oidc_client_id") or "b1a00492-073a-47ea-816f-4c329264a828"
+        issuer = str(rec.get("oidc_issuer") or "https://auth.x.ai").rstrip("/")
+        token_url = f"{issuer}/oauth2/token"
+        if refresh_token:
+            try:
+                resp = httpx.post(
+                    token_url,
+                    data={
+                        "grant_type": "refresh_token",
+                        "client_id": client_id,
+                        "refresh_token": refresh_token,
+                    },
+                    timeout=10.0,
+                )
+                if resp.status_code == 200:
+                    res_json = resp.json()
+                    new_key = res_json.get("access_token")
+                    new_refresh = res_json.get("refresh_token") or refresh_token
+                    expires_in = int(res_json.get("expires_in") or 21600)
+                    new_exp = (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat()
+                    rec["key"] = new_key
+                    rec["access_token"] = new_key
+                    rec["refresh_token"] = new_refresh
+                    rec["expires_at"] = new_exp
+                    data[rec_key] = rec
+                    try:
+                        auth.write_text(json.dumps(data, indent=2), encoding="utf-8")
+                    except OSError:
+                        pass
+                    if isinstance(new_key, str) and new_key.strip():
+                        return new_key.strip()
+            except Exception:
+                pass
+
+        if needs_refresh:
+            continue
+
         key = rec.get("key") or rec.get("access_token") or rec.get("api_key")
         if isinstance(key, str) and key.strip():
-            best = key.strip()
-    return best
+            return key.strip()
+
+    return None
 
 
 def openai_client():

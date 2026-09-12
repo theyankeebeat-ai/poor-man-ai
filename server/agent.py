@@ -640,14 +640,26 @@ async def run_agent(
                 else:
                     nudge = "final_answer already ran. Stop tools and do not rewrite the plan."
 
-            act = client.chat.completions.create(
-                model=planner if step == 0 else writer,
-                messages=messages + ([{"role": "system", "content": nudge}] if nudge else []),
-                tools=active_tools,
-                tool_choice="auto",
-                temperature=0.2,
-                max_tokens=1024 if step == 0 else 2048,
-            )
+            try:
+                act = client.chat.completions.create(
+                    model=planner if step == 0 else writer,
+                    messages=messages + ([{"role": "system", "content": nudge}] if nudge else []),
+                    tools=active_tools,
+                    tool_choice="auto",
+                    temperature=0.2,
+                    max_tokens=1024 if step == 0 else 2048,
+                )
+            except Exception as e:
+                err_str = str(e)
+                if mode != "code" and step == 0 and any(
+                    tok in err_str.lower()
+                    for tok in ("401", "403", "unauthenticated", "bad-credentials", "invalid_api_key", "unauthorized")
+                ):
+                    yield _sse({"type": "plan", "text": "LLM credentials unavailable — falling back to autonomous local/web orchestrator."})
+                    async for line in run_web_only_agent(message, max_steps=max(cap, 1), history=turns, thought=thought):
+                        yield line
+                    return
+                raise
             n_llm += 1
             msg = act.choices[0].message
             tool_calls = msg.tool_calls or []
