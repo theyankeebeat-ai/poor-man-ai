@@ -52,7 +52,7 @@ const INITIAL_MESSAGES: ChatMessage[] = [
   {
     id: 'msg-init',
     sender: 'system',
-    content: 'Poor Man AI Agent Initialized. Connected to local Python orchestrator (127.0.0.1:8000). Autonomous tools, Voice Mode & Screen Vision enabled.',
+    content: 'Poor Man AI Agent Initialized. Low-end Fast profile: PoorMan-Mini-1B INT4 (~0.60 GB) + Thinking Fast. Connected to 127.0.0.1:8000.',
     timestamp: 'Ready'
   }
 ];
@@ -78,7 +78,7 @@ export const AIChatInterface: React.FC = () => {
         updatedAt: Date.now(),
         messages: INITIAL_MESSAGES,
         mode: 'agent',
-        thinkingLevel: 'medium'
+        thinkingLevel: 'low'
       }
     ];
   });
@@ -98,13 +98,13 @@ export const AIChatInterface: React.FC = () => {
       updatedAt: Date.now(),
       messages: INITIAL_MESSAGES,
       mode: 'agent',
-      thinkingLevel: 'medium'
+      thinkingLevel: 'low'
     };
 
   const [messages, setMessages] = useState<ChatMessage[]>(currentSession.messages);
   const [mode, setMode] = useState<'agent' | 'code'>(currentSession.mode || 'agent');
   const [thinkingLevel, setThinkingLevel] = useState<'low' | 'medium' | 'high'>(
-    currentSession.thinkingLevel || 'medium'
+    currentSession.thinkingLevel || 'low'
   );
 
   const [input, setInput] = useState('');
@@ -132,6 +132,7 @@ export const AIChatInterface: React.FC = () => {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const haltRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync state when activeSessionId changes
@@ -140,7 +141,7 @@ export const AIChatInterface: React.FC = () => {
     if (session) {
       setMessages(session.messages);
       setMode(session.mode || 'agent');
-      setThinkingLevel(session.thinkingLevel || 'medium');
+      setThinkingLevel(session.thinkingLevel || 'low');
     }
     localStorage.setItem(ACTIVE_SESSION_KEY, activeSessionId);
   }, [activeSessionId]);
@@ -444,12 +445,37 @@ export const AIChatInterface: React.FC = () => {
 
   // ==================== AGENT INVOCATION ====================
   const handleStop = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
+    haltRef.current = true;
+    const ac = abortControllerRef.current;
+    abortControllerRef.current = null;
+    try {
+      ac?.abort();
+    } catch {
+      /* ignore */
     }
+    try {
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    } catch {
+      /* ignore */
+    }
+    setPlayingAudioId(null);
     setIsGenerating(false);
-    setStatusText('');
+    setStatusText('Stopped');
+    setMessages((prev) => {
+      const last = [...prev].reverse().find((m) => m.sender === 'assistant');
+      if (!last) return prev;
+      return prev.map((m) =>
+        m.id === last.id
+          ? {
+              ...m,
+              content: (m.content || '').trim()
+                ? `${m.content.replace(/\s*\[Stopped\]\s*$/, '')}\n\n[Stopped]`
+                : '[Stopped — thinking cancelled]',
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            }
+          : m
+      );
+    });
   };
 
   const handleSend = async () => {
@@ -508,10 +534,11 @@ export const AIChatInterface: React.FC = () => {
         text: m.content
       }));
 
+    haltRef.current = false;
     abortControllerRef.current = new AbortController();
 
     const maxStepsMap = {
-      low: 6,
+      low: 4,
       medium: 10,
       high: 18
     };
@@ -524,6 +551,7 @@ export const AIChatInterface: React.FC = () => {
         maxStepsMap[thinkingLevel],
         abortControllerRef.current.signal,
         (ev) => {
+          if (haltRef.current) return;
           if (ev.type === 'plan') {
             setMessages((prev) =>
               prev.map((m) =>

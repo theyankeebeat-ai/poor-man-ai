@@ -29,11 +29,11 @@ class IntelligenceParams(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
-    max_steps: int = Field(default=8, ge=0, le=32)
+    max_steps: int = Field(default=5, ge=0, le=32)
     history: list[ChatTurn] = Field(default_factory=list)
     workspace: Optional[str] = None
     mode: Optional[str] = None
-    thinking_level: Optional[str] = Field(default="medium", description="Thinking effort: low, medium, or high")
+    thinking_level: Optional[str] = Field(default="low", description="Thinking effort: low, medium, or high. Default low for low-end PCs.")
     intelligence: Optional[IntelligenceParams] = None
 
 class TTSRequest(BaseModel):

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import time
@@ -21,6 +22,20 @@ from server.router import route
 from server.tools import RUNNERS, chat_model, openai_client, plan_model, run_tool, tools_for_mode
 from server.workspace import path_from_message, set_workspace, workspace_root
 
+_LANG_PREF = re.compile(
+    r"(?i)\b(i\s+(?:don't|do not|dont)\s+speak\s+(spanish|español|french|portuguese)|"
+    r"translate(?:\s+to|\s+into)?\s+(english|en)\b|"
+    r"in english please|explain in english)\b"
+)
+
+
+async def _llm_create(client: Any, **kwargs: Any) -> Any:
+    await asyncio.sleep(0)
+    task = asyncio.current_task()
+    if task is not None and task.cancelled():
+        raise asyncio.CancelledError()
+    return await asyncio.to_thread(client.chat.completions.create, **kwargs)
+
 _BAD_CACHE = re.compile(
     r"(?i)can'?t run commands|cannot run commands|i (?:can'?t|cannot) (?:run|execute) "
     r"(?:commands|shell|terminal)|run it locally|"
@@ -29,6 +44,7 @@ _BAD_CACHE = re.compile(
     r"without captions|no usable transcript|don'?t have a transcript|"
     r"could not access captions|type object 'YouTubeTranscriptApi'|"
     r"blocked the fetch|couldn'?t pull live|could not pull live|"
+    r"hours\*\* of travel|"
     # Tool / function-call dumps must never be user-facing or cached for TTS.
     r"^final_answer\s*:|"
     r'^\s*\{\s*"(?:question|message|draft|answer|text)"\s*:'
@@ -380,8 +396,11 @@ async def run_web_only_agent(
             else:
                 answer = str(item)
     else:
-        # compose from last observations without full crew
         answer = next((t for n, t in reversed(observations) if n == "final_answer"), "")
+        if not answer:
+            from server.mcp.answer import compose_answer
+
+            answer = compose_answer(message, plan, observations, turns)
         if not answer:
             bits = [digest_obs(n, t) for n, t in observations[-4:]]
             answer = "\n\n".join(bits) or "No evidence gathered."
@@ -401,7 +420,7 @@ async def run_agent(
     max_steps: int = 8,
     history: list[dict[str, Any]] | None = None,
     mode_override: str | None = None,
-    thinking_level: str | None = "medium",
+    thinking_level: str | None = "low",
     intelligence: dict[str, Any] | None = None,
 ) -> AsyncIterator[str]:
     t0 = time.perf_counter()
@@ -438,8 +457,11 @@ async def run_agent(
     cap = min(max(int(max_steps), 0), 32)
     t_level = (thinking_level or "medium").lower()
     hp = resolve_intelligence(t_level, intelligence)
-    if not hp.use_crew:
+    # Fast profile skips debate crew, but weather still needs API compose (not travel-math).
+    if not hp.use_crew and thought.get("mode") != "weather":
         thought["needs_crew"] = False
+    if thought.get("mode") == "weather":
+        thought["needs_crew"] = True
     if t_level == "low":
         cap = min(cap, 5)
     elif t_level == "high":
@@ -461,6 +483,9 @@ async def run_agent(
     if isinstance(hit, str) and hit.strip():
         hit = unwrap_answer_payload(hit)
         if hit.strip() and not _BAD_CACHE.search(hit):
+            if re.search(r"\bweather\b", message, re.I) and re.search(r"travel", hit, re.I):
+                hit = None
+        if isinstance(hit, str) and hit.strip() and not _BAD_CACHE.search(hit):
             yield _sse({"type": "plan", "text": "cache hit — replay prior answer"})
             for i in range(0, len(hit), 48):
                 yield _sse({"type": "token", "text": hit[i : i + 48]})
@@ -492,6 +517,12 @@ async def run_agent(
         f"units={thread.get('units')}. "
         + intelligence_prompt_extras(hp)
     )
+    if _LANG_PREF.search(message or ""):
+        extras += (
+            " User asked for English / cannot speak the source language. "
+            "Answer in English. Call translate_text on Spanish (or other) official text. "
+            "memory_write that they prefer English."
+        )
     sys = build_system(mode, message, extras, memory_limit=hp.memory_snippets)
     messages: list[dict[str, Any]] = [{"role": "system", "content": sys}]
     for t in turns:
@@ -552,8 +583,12 @@ async def run_agent(
 
     try:
         for step in range(max(cap, 1)):
+            task = asyncio.current_task()
+            if task is not None and task.cancelled():
+                yield _sse({"type": "done", "text": "[Stopped]"})
+                return
             if not planned:
-                think = client.chat.completions.create(
+                think = await _llm_create(client,
                     model=planner,
                     messages=messages
                     + [
@@ -648,7 +683,7 @@ async def run_agent(
                     nudge = "final_answer already ran. Stop tools and do not rewrite the plan."
 
             try:
-                act = client.chat.completions.create(
+                act = await _llm_create(client,
                     model=planner if step == 0 else writer,
                     messages=messages + ([{"role": "system", "content": nudge}] if nudge else []),
                     tools=active_tools,
@@ -779,7 +814,7 @@ async def run_agent(
                 yield _sse(_metrics(t_first_plan_ms=t_first_plan, n_llm_calls=n_llm, n_tools=n_tools, t_tools_ms=int(t_tools * 1000), t_first_token_ms=t_first_token, cache=cache_stats()))
                 return
 
-        wrap = client.chat.completions.create(
+        wrap = await _llm_create(client,
             model=writer,
             messages=messages
             + [

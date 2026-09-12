@@ -45,7 +45,7 @@ export async function streamChat(
       history,
       workspace: opts.workspace || undefined,
       mode: opts.mode || undefined,
-      thinking_level: opts.thinking_level || 'medium',
+      thinking_level: opts.thinking_level || 'low',
       intelligence: loadIntelligence(),
     }),
     signal,
@@ -56,23 +56,40 @@ export async function streamChat(
   const reader = r.body.getReader();
   const dec = new TextDecoder();
   let buf = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    const parts = buf.split("\n");
-    buf = parts.pop() ?? "";
-    for (const line of parts) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      try {
-        onEvent(JSON.parse(trimmed) as AgentEvent);
-      } catch {
-        /* ignore partial JSON */
+  const cancelReader = () => {
+    try {
+      void reader.cancel();
+    } catch {
+      /* ignore */
+    }
+  };
+  const onAbort = () => cancelReader();
+  signal.addEventListener("abort", onAbort, { once: true });
+  try {
+    while (true) {
+      if (signal.aborted) {
+        cancelReader();
+        break;
+      }
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const parts = buf.split("\n");
+      buf = parts.pop() ?? "";
+      for (const line of parts) {
+        const trimmed = line.trim();
+        if (!trimmed || signal.aborted) continue;
+        try {
+          onEvent(JSON.parse(trimmed) as AgentEvent);
+        } catch {
+          /* ignore partial JSON */
+        }
       }
     }
+  } finally {
+    signal.removeEventListener("abort", onAbort);
   }
-  if (buf.trim()) {
+  if (buf.trim() && !signal.aborted) {
     try {
       onEvent(JSON.parse(buf.trim()) as AgentEvent);
     } catch {

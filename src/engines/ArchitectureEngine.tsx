@@ -225,7 +225,7 @@ export const ArchitectureEngine: React.FC = () => {
           <div>
             <h2 className="text-lg font-bold">Model Architecture &amp; Parameter Studio</h2>
             <p className={`text-xs ${colors.textMuted}`}>
-              Configure neural model architecture, quantization profiles, inference parameters, and QLoRA fine-tuning
+              Low-end Fast is active: PoorMan-Mini-1B · INT4 AWQ · ~0.60 GB · Thinking Fast. Switch blueprints only if you have more VRAM.
             </p>
           </div>
         </div>
@@ -284,8 +284,15 @@ export const ArchitectureEngine: React.FC = () => {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-semibold text-sm">{bp.spec.name}</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono">
-                      {bp.formatted_params}
+                    <span className="flex items-center gap-1">
+                      {bp.recommended || bp.key === 'poor_man_1b' ? (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold uppercase">
+                          Fast
+                        </span>
+                      ) : null}
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono">
+                        {bp.formatted_params}
+                      </span>
                     </span>
                   </div>
                   <div className={`text-xs ${colors.textMuted} space-y-1 font-mono`}>

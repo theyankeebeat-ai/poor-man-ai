@@ -339,11 +339,38 @@ def intelligence_prompt_extras(hp: Hyperparameters) -> str:
     return "Intelligence: " + ", ".join(bits) + "." + ((" " + " ".join(rules)) if rules else "")
 
 
+RECOMMENDED_ARCH_KEY = "poor_man_1b"
+
+
+def runtime_profile() -> Dict[str, Any]:
+    """Active runtime for low-end PCs: 1B INT4 + Fast thinking + local heuristics."""
+    hp = PRESET_HYPERPARAMETERS["fast_heuristic"]
+    bp = get_architecture_blueprint(RECOMMENDED_ARCH_KEY)
+    return {
+        "id": "low_end_fast",
+        "arch_key": RECOMMENDED_ARCH_KEY,
+        "name": bp["spec"]["name"],
+        "formatted_params": bp["formatted_params"],
+        "precision": "int4",
+        "quant_method": "awq",
+        "thinking_level": "low",
+        "preset": "fast_heuristic",
+        "max_steps": 5,
+        "int4_gb": bp["memory_estimates"]["int4_gb"],
+        "hyperparameters": asdict(hp),
+        "reason": (
+            "PoorMan-Mini-1B in INT4 AWQ (~0.60 GB). Fastest blueprint that still "
+            "fits a low-end PC; Fast thinking skips crew, critique, and extra tool hops."
+        ),
+    }
+
+
 def get_architecture_blueprint(arch_key: str) -> Dict[str, Any]:
     spec = PRESET_ARCHITECTURES.get(arch_key, PRESET_ARCHITECTURES["poor_man_1b"])
     raw_params = spec.estimate_parameter_count()
     return {
         "key": arch_key,
+        "recommended": arch_key == RECOMMENDED_ARCH_KEY,
         "spec": asdict(spec),
         "total_parameters": raw_params,
         "formatted_params": f"{raw_params / 1e9:.2f}B" if raw_params >= 1e9 else f"{raw_params / 1e6:.1f}M",

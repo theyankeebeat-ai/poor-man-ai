@@ -212,7 +212,9 @@ def synthesize(
         except json.JSONDecodeError:
             continue
         if isinstance(data, dict) and data.get("sources"):
-            lines.append(_from_structured(data, plan, q))
+            structured = _from_structured(data, plan, q)
+            if structured.strip():
+                lines.append(structured)
 
     rainish = bool(re.search(r"\b(rain|precip|shower|storm|drizzle|umbrella|wet)\b", q))
     wear = bool(re.search(r"\b(jacket|coat|layers?|cold|warm|what (?:do|should) i wear)\b", q))
@@ -344,6 +346,17 @@ def synthesize(
             )
 
     loc = plan.location or ""
+    asked_wx = bool(re.search(r"\b(weather|forecast|temperature|temp)\b", q))
+    if asked_wx and any(n == "weather_compare" for n, _ in observations) and lines:
+        # Generic "what's the weather" → tape only; skip rain/jacket filler.
+        if not rainish and not wear and not umbrella:
+            body = lines[0]
+            cites_wx = [u for u in cites if "open-meteo" in u or "met.no" in u or "wttr.in" in u] or cites[:4]
+            extra = [body]
+            if cites_wx:
+                extra += ["", "Citations:"] + [f"- {u}" for u in cites_wx[:6]]
+            return "\n".join(extra)
+
     header = f"**{plan.goal}**"
     if loc:
         header += f" · {loc}"

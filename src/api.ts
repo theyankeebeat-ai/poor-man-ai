@@ -45,7 +45,7 @@ export async function streamChat(
       history,
       workspace: opts.workspace || undefined,
       mode: opts.mode || undefined,
-      thinking_level: opts.thinking_level || 'medium',
+      thinking_level: opts.thinking_level || 'low',
       intelligence: opts.intelligence || loadIntelligence(),
     }),
     signal,
@@ -56,7 +56,25 @@ export async function streamChat(
   const reader = r.body.getReader();
   const dec = new TextDecoder();
   let buf = "";
+  const cancelReader = () => {
+    try {
+      void reader.cancel();
+    } catch {
+      /* ignore */
+    }
+  };
+  if (signal.aborted) {
+    cancelReader();
+    return;
+  }
+  const onAbort = () => cancelReader();
+  signal.addEventListener("abort", onAbort, { once: true });
+  try {
   while (true) {
+    if (signal.aborted) {
+      cancelReader();
+      break;
+    }
     const { done, value } = await reader.read();
     if (done) break;
     buf += dec.decode(value, { stream: true });
@@ -65,6 +83,7 @@ export async function streamChat(
     for (const line of parts) {
       const trimmed = line.trim();
       if (!trimmed) continue;
+      if (signal.aborted) return;
       try {
         onEvent(JSON.parse(trimmed) as AgentEvent);
       } catch {
@@ -72,7 +91,10 @@ export async function streamChat(
       }
     }
   }
-  if (buf.trim()) {
+  } finally {
+    signal.removeEventListener("abort", onAbort);
+  }
+  if (buf.trim() && !signal.aborted) {
     try {
       onEvent(JSON.parse(buf.trim()) as AgentEvent);
     } catch {

@@ -163,6 +163,9 @@ def mode_of(
     """
     raw = (message or "").strip()
     q = (goal or raw).strip()
+    # Weather words beat arithmetic. Wind km/h in a forecast is not a calc.
+    if WEATHER_RE.search(q) or WEATHER_RE.search(raw):
+        return "weather"
     if try_math(raw):
         return "calc"
     if REMEMBER_WRITE_RE.match(raw):

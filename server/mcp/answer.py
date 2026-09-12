@@ -189,9 +189,24 @@ def _llm_answer(message: str, history: list[Turn], evidence: str) -> str | None:
         return None
 
 
+_WEATHER_Q = re.compile(
+    r"\b(weather|forecast|temperature|temp|rain|umbrella|humid|wind|°[cf]|celsius|fahrenheit)\b",
+    re.I,
+)
+_TRAVEL_Q = re.compile(
+    r"\b(arrive|left at|eta|how long|travel time|drive|train|flight|commute)\b",
+    re.I,
+)
+
+
 def _motion(question: str) -> str | None:
     q = question.lower()
-    if not re.search(r"\b(mph|miles|km/h|kph|arrive|left at|train|drive|speed)\b", q):
+    # Wind speed in weather reports is km/h — never treat those as a road problem.
+    if _WEATHER_Q.search(q) and not _TRAVEL_Q.search(q):
+        return None
+    if not _TRAVEL_Q.search(q):
+        return None
+    if not re.search(r"\b(mph|miles|km/h|kph|km|mi)\b", q):
         return None
     dist = re.search(r"(\d+(?:\.\d+)?)\s*(miles|mi|km)\b", q)
     spd = re.search(r"(\d+(?:\.\d+)?)\s*(mph|km/h|kph)\b", q)
@@ -294,8 +309,33 @@ def compose_answer(
 
     from server.local_brain import cheap_answer
 
+    weatherish = bool(_WEATHER_Q.search(message or ""))
+    has_wx = any(n == "weather_compare" for n, _ in observations)
+
+    # Weather always uses live API observations. Never cheap-math or travel-time.
+    if weatherish or has_wx:
+        from server.reason import _from_structured, synthesize
+
+        for name, text in observations:
+            if name != "weather_compare":
+                continue
+            try:
+                data = json.loads(text)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(data, dict) and data.get("sources"):
+                tape = _from_structured(data, plan, (message or "").lower())
+                if tape.strip() and "hours** of travel" not in tape:
+                    cites_wx = [u for u in cites if "wttr.in" in u or "open-meteo" in u or "met.no" in u]
+                    if cites_wx:
+                        return tape + "\n\nCitations:\n" + "\n".join(f"- {u}" for u in cites_wx[:6])
+                    return tape
+        wx = synthesize(message, plan, observations, history)
+        if wx and "hours** of travel" not in wx:
+            return wx
+
     local = cheap_answer(message, history or [])
-    if local:
+    if local and not weatherish:
         return local
 
     media = _media_answer(observations)
@@ -306,7 +346,7 @@ def compose_answer(
         return body
 
     motion = _motion(message)
-    if motion:
+    if motion and not weatherish:
         body = motion
         if cites:
             body += "\n\nCitations:\n" + "\n".join(f"- {u}" for u in cites[:6])

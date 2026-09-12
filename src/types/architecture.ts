@@ -26,6 +26,7 @@ export interface ArchitectureSpec {
 
 export interface ArchitectureBlueprint {
   key: string;
+  recommended?: boolean;
   spec: ArchitectureSpec;
   total_parameters: number;
   formatted_params: string;
@@ -60,30 +61,31 @@ export interface HyperparametersConfig {
   writer_temperature: number;
 }
 
-export const INTEL_STORAGE_KEY = 'poor_man_ai_intelligence_v1';
+export const INTEL_STORAGE_KEY = 'poor_man_ai_intelligence_v2';
 
+/** Low-end PC default: 1B INT4 Fast heuristic — few tool hops, no crew. */
 export const DEFAULT_HYPERPARAMS: HyperparametersConfig = {
-  temperature: 0.7,
-  top_p: 0.95,
-  top_k: 40,
+  temperature: 0.0,
+  top_p: 1.0,
+  top_k: 1,
   min_p: 0.05,
-  repetition_penalty: 1.1,
+  repetition_penalty: 1.0,
   frequency_penalty: 0.0,
   presence_penalty: 0.0,
-  max_new_tokens: 2048,
-  context_window: 8192,
+  max_new_tokens: 1024,
+  context_window: 4096,
   seed: 42,
-  reasoning_effort: 'medium',
-  verify_claims: true,
+  reasoning_effort: 'low',
+  verify_claims: false,
   self_critique: false,
-  require_citations: true,
+  require_citations: false,
   consensus_search: false,
-  coverage_threshold: 0.55,
-  max_plan_tools: 4,
-  memory_snippets: 6,
-  use_crew: true,
-  planner_temperature: 0.1,
-  writer_temperature: 0.2
+  coverage_threshold: 0.35,
+  max_plan_tools: 2,
+  memory_snippets: 3,
+  use_crew: false,
+  planner_temperature: 0.0,
+  writer_temperature: 0.0
 };
 
 export function intelligencePayload(hp: HyperparametersConfig) {

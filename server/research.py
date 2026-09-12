@@ -84,8 +84,22 @@ async def gather(
         obs.append((name, clip))
 
     wave: list[tuple[str, dict[str, Any], Any]] = []
-    if plan.location and OUTDOOR_RE.search(plan.goal) and steps < max_steps:
-        wave.append(("weather_compare", {"place": plan.location, "units": plan.units}, _dispatch))
+    wx_place = (plan.location or "").strip()
+    if not wx_place and OUTDOOR_RE.search(plan.goal):
+        wx_place = re.sub(
+            r"^\s*(?:what(?:'s| is)|how(?:'s| is)|tell me)\s+",
+            "",
+            plan.goal,
+            flags=re.I,
+        )
+        wx_place = re.sub(
+            r"\b(the\s+)?(weather|forecast|temperature|temp)\s+(in|for|at|near)\s+",
+            "",
+            wx_place,
+            flags=re.I,
+        ).strip(" ?!.")
+    if OUTDOOR_RE.search(plan.goal) and wx_place and steps < max_steps:
+        wave.append(("weather_compare", {"place": wx_place, "units": plan.units}, _dispatch))
         steps += 1
 
     fin_matches = re.findall(r"\b([A-Z]{1,5}:[A-Z]{3,8}|[A-Z]{2,5})\b", plan.goal)

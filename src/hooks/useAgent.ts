@@ -49,7 +49,7 @@ export function useAgent(initial: ChatMessage[] = []) {
     abortRef.current?.abort();
     abortRef.current = null;
     setRunning(false);
-    setLiveStatus("");
+    setLiveStatus("Stopped");
   }, []);
 
   const reset = useCallback((next: ChatMessage[] = []) => {

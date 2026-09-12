@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 import edge_tts
 import uuid
 import shutil
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -142,11 +142,13 @@ def mcp_neurons() -> dict:
 
 @app.get("/model/architecture")
 def get_model_architectures() -> dict:
-    from server.architecture import list_all_blueprints, PRESET_HYPERPARAMETERS
+    from server.architecture import list_all_blueprints, PRESET_HYPERPARAMETERS, runtime_profile
     from dataclasses import asdict
     return {
         "architectures": list_all_blueprints(),
         "presets": {k: asdict(v) for k, v in PRESET_HYPERPARAMETERS.items()},
+        "runtime": runtime_profile(),
+        "recommended": "poor_man_1b",
     }
 
 
@@ -180,8 +182,11 @@ def mcp_skills() -> dict:
 
 
 @app.post("/chat")
-async def chat(req: ChatRequest) -> StreamingResponse:
-    max_steps = req.max_steps or int(os.getenv("MAX_STEPS", "8"))
+async def chat(request: Request, req: ChatRequest) -> StreamingResponse:
+    max_steps = req.max_steps or int(os.getenv("MAX_STEPS", "5"))
+    thinking = (req.thinking_level or "low").lower()
+    if thinking == "low":
+        max_steps = min(max_steps, 5)
 
     # Prefer an explicit path in the user message over a stale UI workspace field.
     target_ws = path_from_message(req.message or "", create=True)
@@ -210,11 +215,18 @@ async def chat(req: ChatRequest) -> StreamingResponse:
                 max_steps=max_steps,
                 history=[t.model_dump() for t in req.history],
                 mode_override=req.mode,
-                thinking_level=req.thinking_level or "medium",
+                thinking_level=thinking,
                 intelligence=intel,
             ):
+                if await request.is_disconnected():
+                    yield json.dumps({"type": "done", "text": "[Stopped]"}) + "\n"
+                    return
                 yield line
         except (asyncio.CancelledError, GeneratorExit):
+            try:
+                yield json.dumps({"type": "done", "text": "[Stopped]"}) + "\n"
+            except Exception:
+                return
             return
 
     return StreamingResponse(

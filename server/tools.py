@@ -1088,6 +1088,59 @@ async def weather_compare(args: dict[str, Any]) -> str:
     return out
 
 
+async def translate_text(args: dict[str, Any]) -> str:
+    """Translate prose via free public APIs (MyMemory, then LibreTranslate). No paid key."""
+    text = str(args.get("text") or args.get("q") or "").strip()
+    source = str(args.get("source_lang") or args.get("from") or "auto").strip() or "auto"
+    target = str(args.get("target_lang") or args.get("to") or "en").strip() or "en"
+    if not text:
+        return json.dumps({"error": "empty text"})
+    clip = text[:4500]
+    cached = cache_get("translate", source, target, clip[:800])
+    if isinstance(cached, str) and cached.strip():
+        return cached
+    client = http_client()
+    out: dict[str, Any] = {
+        "source_lang": source,
+        "target_lang": target,
+        "original": clip[:2000],
+    }
+    pair = f"{'es' if source == 'auto' else source}|{target}"
+    try:
+        r = await client.get(
+            "https://api.mymemory.translated.net/get",
+            params={"q": clip[:500], "langpair": pair if source != "auto" else f"autodetect|{target}"},
+            timeout=20.0,
+        )
+        data = r.json() if r.status_code < 400 else {}
+        translated = ((data.get("responseData") or {}).get("translatedText") or "").strip()
+        if translated and "MYMEMORY WARNING" not in translated.upper():
+            out["translated"] = translated
+            out["engine"] = "mymemory"
+    except Exception as e:
+        out["mymemory_error"] = str(e)[:200]
+    if not out.get("translated"):
+        try:
+            r2 = await client.post(
+                "https://libretranslate.com/translate",
+                json={"q": clip[:2000], "source": source if source != "auto" else "auto", "target": target, "format": "text"},
+                timeout=20.0,
+            )
+            data2 = r2.json() if r2.status_code < 400 else {}
+            t2 = str(data2.get("translatedText") or "").strip()
+            if t2:
+                out["translated"] = t2
+                out["engine"] = "libretranslate"
+        except Exception as e:
+            out["libre_error"] = str(e)[:200]
+    if not out.get("translated"):
+        out["error"] = "no translator reachable; paraphrase the source in the user's language yourself"
+    payload = json.dumps(out, ensure_ascii=False)
+    if out.get("translated"):
+        cache_put("translate", payload, source, target, clip[:800])
+    return payload
+
+
 TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
@@ -1188,6 +1241,30 @@ TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "translate_text",
+            "description": "Translate text between languages (Spanish, English, French, Portuguese, etc.). Use when the user does not speak the source language or asks to translate official documents, trámites, or web pages. Default target is English.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "Text to translate"},
+                    "source_lang": {
+                        "type": "string",
+                        "description": "ISO code or auto (es, en, fr, pt, auto)",
+                        "default": "auto",
+                    },
+                    "target_lang": {
+                        "type": "string",
+                        "description": "ISO code to translate into",
+                        "default": "en",
+                    },
+                },
+                "required": ["text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "weather_compare",
             "description": "Cross-reference public weather APIs for a place (Open-Meteo, MET Norway, wttr.in). No API key. Use for weather questions.",
             "parameters": {
@@ -1232,6 +1309,7 @@ RUNNERS: dict[str, ToolFn] = {
     "read_image": read_image,
     "generate_image": generate_image,
     "weather_compare": weather_compare,
+    "translate_text": translate_text,
 }
 
 
