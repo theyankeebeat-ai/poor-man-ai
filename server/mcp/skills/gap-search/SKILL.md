@@ -13,4 +13,5 @@ After the first search/read wave:
 1. Compare query terms to observation text.
 2. If coverage is low, run 1–2 extra `web_search` queries that include resolved thread entities.
 3. Read at most two new URLs. Prefer official/docs hosts.
-4. Stop when coverage is adequate or the step budget is gone.
+4. Sports follow-ups with no team names in observations: search `site:nfl.com` / `site:espn.com/nfl/schedule` (or nba.com) once.
+5. Stop when coverage is adequate or the step budget is gone.

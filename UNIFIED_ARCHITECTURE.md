@@ -13,20 +13,20 @@ Poor Man AI
 ├── Backend (FastAPI, Python 3.10+) -> port 8000
 │   ├── /chat (NDJSON streaming agent & code loops with dynamic thinking_level)
 │   ├── /health (Cache & server telemetry)
-│   ├── /memory (Persistent JSONL facts)
+│   ├── /memory (Persistent JSONL facts; lessons.jsonl distilled rules)
 │   ├── /model/architecture (Neural architecture blueprints, param counter & VRAM budgets)
 │   ├── /model/train (QLoRA/LoRA fine-tuning submission & blackboard tracking)
 │   ├── /tools (Live Python primitive & financial tools: financial_quote, financial_compare, financial_news)
 │   ├── /read-url & /api/read-url (Resilient web scraping & browser engine)
-│   ├── /mcp/skills (Dynamic MCP SOP skills including financial-markets)
-│   ├── /mcp/knowledge (Research playbooks including financial-markets)
-│   ├── /mcp/neurons (Layer & crew neural routing banks)
+│   ├── /mcp/skills (SOP skills: financial-markets, sports-schedule, continual-learn, learn-skill, web-reader, …)
+│   ├── /mcp/knowledge (Playbooks: financial-markets, sports-schedules, learned-runtime, skill-learning, …)
+│   ├── /mcp/neurons (14×32×16×1 routing banks + crew nets; arch + params_per_net)
 │   ├── /tts & /tts/voices (Edge TTS neural speech synthesis)
 │   └── /upload (File, image & screen snapshot attachment ingestion)
 │
 └── Frontend (Vite, React 18, Tailwind, Lucide) -> port 5173
     ├── Agent Workflow (/agent) -> Pipeline step inspection & simulation
-    ├── Chat Assistant (/chat) -> Live chat cockpit: Thinking effort level (Fast/Standard/Deep), multi-session drawer, copy answer/chat, Web Speech STT, Edge Neural TTS, and WebRTC Screen Sharing vision
+    ├── Chat Assistant (/chat) -> Live chat cockpit: Thinking effort (Fast/Standard/Deep; default Standard), multi-session drawer, copy answer/chat, Web Speech STT, Edge Neural TTS, and WebRTC Screen Sharing vision
     ├── Architecture & Tuning (/architecture) -> Neural specs, parameters, quantization & fine-tuning studio
     ├── Web AI (/webai) -> Multi-engine consensus formulation
     ├── Web Browser (/browser) -> Live web retrieval across DDG/Google/Bing/Yandex
@@ -51,16 +51,20 @@ Poor Man AI
   * Streams NDJSON lines: `plan`, `tool`, `observation`, `token`, `done`, and `error`.
   * Safe answer payload unwrapping and clean completion safeguards.
 * **Crew Orchestra (`server/crew/`)**:
-  * Multi-agent blackboard orchestration: `facts`, `howto`, `media`, `gap`, `debate`, and `verifier`.
+  * Multi-agent blackboard orchestration: `facts`, `howto`, `schedule`, `time`, `gap`, `debate`, `verifier`, and the rest of `ROSTER` in `server/crew/specialists.py`.
 * **MCP Layer & Skills (`server/mcp/`)**:
   * Dynamic file-based skill definitions loaded from `server/mcp/skills/*/SKILL.md`.
   * Knowledge playbooks loaded from `server/mcp/knowledge/*.md`.
   * Execution hooks (`on_user_message`, `on_plan`, `on_observations`, `on_before_judge`, `on_verify`).
+  * Self-modification sandbox (`server/mcp/learn.py`): `write_skill`, `write_knowledge`, `list_learned`, **`harvest_turn` / `harvest_lesson`**, **`recall_learned`**. Playbook learning only — not weight training, not AGI.
 * **Workspace & Code Execution Tools (`server/code_tools.py`, `server/workspace.py`)**:
   * Controlled workspace sandboxing via `path_from_message` and sticky workspace sessions.
   * Native execution tools: `workspace_info`, `list_dir`, `read_file`, `grep`, `apply_patch`, `write_file`, `run_cmd`, `git_status`, `git_diff`.
 * **Neural Routing Banks (`server/neurons.py`)**:
-  * Lightweight 10x12x1 neural routing nets per MCP layer and specialist crew agent.
+  * Tiny **14×32×16×1** two-hidden-layer nets (~**1,025 weights each**). One bank per MCP layer (`reason`, `skills`, `hooks`, `tools`, `agents`) plus `crew:<role>`.
+  * These nets **only rank** skills, tools, and crew. They are **not** a language model and do not write answers.
+  * Input features include term overlap, entity hit, junk/JSON traps, geo/numbers, sports/schedule alignment, official-host, follow-up cues, and who/when question alignment.
+  * `GET /mcp/neurons` returns `arch`, `params_per_net`, `banks`, `crew`, and a note that the nets are routers only.
 * **Audio & Speech Synthesis**:
   * Edge TTS integration (`/tts`, `/tts/voices`) with caching to prevent API stampedes.
 * **Command Line Interface (`cli/`)**:
@@ -103,7 +107,7 @@ Poor Man AI
 |---|---|---|
 | **Chat Assistant** (`src/AIChatInterface.tsx`) | Hardcoded simulation with mock delays | Fully connected to `streamChat()` (`POST /chat`) with live plans, tool invocations, observations, and code execution mode toggle. |
 | **Server Engine** (`src/engines/ServerEngine.tsx`) | Static microservices table | Polls live `/health` endpoint every 10s with real cache keys, active port status, and daemon telemetry logs. |
-| **Brain Engine** (`src/engines/BrainEngine.tsx`) | Static mock hyperparameters | Live fetches `/memory` (`server/data/memory.jsonl`) and `/mcp/neurons` routing network state. |
+| **Brain Engine** (`src/engines/BrainEngine.tsx`) | Static mock hyperparameters | Live fetches `/memory` (`server/data/memory.jsonl`) and `/mcp/neurons` (`arch`, `params_per_net`, bank list). Continual rules live in `server/data/lessons.jsonl`. |
 | **Skill Engine** (`src/engines/SkillEngine.tsx`) | Hardcoded mock skills list | Live fetches `/mcp/skills` and `/mcp/knowledge` directly from the backend MCP system. |
 | **Tools Engine** (`src/engines/ToolsEngine.tsx`) | Hardcoded tool samples | Live fetches `/tools` from FastAPI backend exposing real Python tool parameters and JSONSchemas. |
 | **Architecture & Tuning** (`src/engines/ArchitectureEngine.tsx`) | N/A (New Studio Module) | Dedicated route `/architecture` backed by `server/architecture.py`, `GET /model/architecture`, and `POST /model/train` for neural blueprints, parameter math, AWQ/NF4 quantization, and QLoRA tuning. |
@@ -128,6 +132,8 @@ Poor Man AI
 1. Create a new directory in [`server/mcp/skills/<skill-name>/SKILL.md`](file:///C:/Users/freed/OneDrive/Desktop/Poor%20man%20ai/server/mcp/skills).
 2. Add Markdown playbooks in [`server/mcp/knowledge/<playbook-name>.md`](file:///C:/Users/freed/OneDrive/Desktop/Poor%20man%20ai/server/mcp/knowledge).
 3. The **Skill Engine** (`/skill`) and agent routing will auto-load them at boot or reload.
+4. For domain logic (schedules, quotes, weather), also wire: query expansion in `local_brain.py`, host preference in `research.py`, coverage/gap rules in `mcp/hooks.py`, a crew specialist, and a few labeled pairs in `neurons.py`. See §11.
+5. Durable “next time” rules are harvested automatically (§12). User-taught methods still go through `learn-skill` → `write_skill` / `write_knowledge`.
 
 ---
 
@@ -172,6 +178,7 @@ Poor Man AI
 ### D. Direct URL Detection & Fast Agent Routing (`server/local_brain.py`, `server/research.py`)
 * Automatically detects URLs in user prompts (`read https://...`, `summarize https://...`).
 * Prioritizes direct page extraction first, skipping redundant search queries when a destination URL is explicitly provided.
+* Sports / weekend / “who is playing” questions expand to official-host queries (`site:nfl.com`, `site:espn.com`, `site:nba.com`), raise `fetch_urls`, and keep follow-ups on the same league slate.
 
 ### E. Backend API Endpoints & Resilient Streaming (`server/main.py`, `server/agent.py`)
 * Added `POST /read-url`, `POST /api/read-url`, and `GET /api/read-url` accepting `url`, `render_js`, `force_refresh`, and `max_chars`.
@@ -333,12 +340,14 @@ To enable Poor Man AI to scale its intelligence dynamically and operate on resou
   * `poor_man_1b`: 16 layers, 2048 hidden dimension, 16 Q heads, 4 KV heads (852.6M params, ~0.60 GB in INT4 AWQ).
   * `poor_man_3b`: 28 layers, 3072 hidden dimension, 24 Q heads, 8 KV heads (3.02B params, ~2.62 GB in INT4 AWQ).
   * `poor_man_moe_8x1b`: 24 layers, 8 experts (2 active routing), 32K context (7.03B params, ~4.63 GB in INT4 AWQ).
-  * `poor_man_router_10x12`: 10x12x1 lightweight layer neuron network for instant zero-GPU intent routing.
+  * `poor_man_router_10x12` (live topology in `server/neurons.py`): **14×32×16×1** two-hidden-layer router (~1,025 weights per bank) for zero-GPU intent / skill / tool / crew ranking. Blueprint key kept for studio compatibility; `ArchitectureSpec` uses `hidden_dim=32`, `intermediate_dim=16`, `vocab_size=14`, `num_layers=3`.
 * **Hyperparameter Presets**:
   * `creative_chat`: Temp 0.85, Top-P 0.92, Top-K 50, Rep-Penalty 1.08.
   * `precise_code`: Temp 0.15, Top-P 0.95, Top-K 20, Rep-Penalty 1.05, High Reasoning Effort.
   * `deep_research`: Temp 0.35, Top-P 0.90, Top-K 40, Rep-Penalty 1.12, High Reasoning Effort.
-  * `fast_heuristic`: Temp 0.0, Top-P 1.0, Top-K 1, Rep-Penalty 1.0.
+  * `fast_heuristic`: Temp 0.0, Top-P 1.0, Top-K 1, Rep-Penalty 1.0 (maps to thinking **low** / Fast).
+  * `smarter_agent`: verify + self-critique + citations + crew (maps to thinking **high** / Deep).
+  * `THINKING_DEFAULTS`: `low` → fast_heuristic, `medium` → default Hyperparameters, `high` → smarter_agent. Chat UI and `ChatRequest` default to **medium**.
 * **Quantization & Fine-Tuning Specifications**:
   * `QuantizationConfig`: AWQ, GPTQ, BitsAndBytes (NF4), GGUF, group sizes (32/64/128), asymmetric zero-points, and double quantization.
   * `FineTuningConfig`: QLoRA, LoRA, DPO, rank $r$, $\alpha$, dropout, learning rate schedules, and gradient accumulation.
@@ -346,6 +355,7 @@ To enable Poor Man AI to scale its intelligence dynamically and operate on resou
 ### B. FastAPI Studio Endpoints (`server/main.py`)
 * `GET /model/architecture`: Exposes live blueprint metadata, estimated parameter counts, and VRAM memory budgets.
 * `POST /model/train`: Dispatches fine-tuning jobs (target model, method, epochs, learning rate, dataset path) to the agent blackboard.
+* `GET /mcp/neurons`: Live router topology (`arch` = `14x32x16x1`, `params_per_net` ≈ 1025), bank names, and crew nets.
 
 ### C. TypeScript Type Contracts (`src/types/architecture.ts`)
 * Provides compile-time type safety for `ArchitectureSpec`, `ArchitectureBlueprint`, `HyperparametersConfig`, `QuantizationConfig`, and `FineTuningConfig`.
@@ -368,19 +378,20 @@ To deliver an interactive assistant experience on par with frontier commercial c
 Rather than fixing the agent to a static loop depth, the user can dial reasoning effort on demand:
 
 ```
-[UI Selector: Fast / Standard / Deep]
+[UI Selector: Fast / Standard / Deep]   default = Standard (medium)
        │
        ▼ streamChat(..., { thinking_level: 'low' | 'medium' | 'high' })
-[FastAPI /chat] -> ChatRequest.thinking_level
+[FastAPI /chat] -> ChatRequest.thinking_level (default medium)
        │
        ▼ run_agent(..., thinking_level='...')
 [Agent Loop Orchestrator (`server/agent.py`)]
-       ├── Low (Fast): cap = min(cap, 5), lightweight synthesis, minimal tool hops
-       ├── Medium (Standard): cap = 10, balanced research & tool execution
-       └── High (Deep): cap = max(cap, 16), deep reflection, edge-case analysis & bug verification
+       ├── Low (Fast): cap ≤ 5, skip extra hops; UI max_steps ≈ 4
+       ├── Medium (Standard): cap 8–12 (UI ≈ 10), crew + search/read
+       └── High (Deep): cap ≥ 16 (UI ≈ 18), critique, verify, extra gap-search
 ```
 
-* **System Prompt Injection**: When `thinking_level` is set to `high`, `server/agent.py` appends `thinking_effort=high` and prompts the model to thoroughly verify code logic, lint output, and cross-reference citations before terminating. When set to `low`, it prioritizes concise answers without triggering unnecessary exploratory tool hops.
+* **Default is Standard**, not Fast. Fast starved sports/follow-up questions of tool steps. Existing browser sessions saved as Fast stay Fast until the user switches the selector.
+* **System Prompt Injection**: `server/architecture.py` `intelligence_prompt_extras()` injects coverage, verify, self-critique, citations, and crew flags. High effort requires verify/lint/citations before stop; low effort stays concise.
 
 ### B. Multi-Session Conversation Management & New Chat
 
@@ -446,3 +457,101 @@ To allow Poor Man AI to inspect local code editors, terminal windows, browser ta
 
 * **Live Stream Dock**: When screen sharing is active, a floating video feed thumbnail with a blinking `LIVE` badge appears at the top of the chat.
 * **Autonomous Vision Inspection**: The captured snapshot is ingested through `/upload`, generating a static preview URL. When submitted, the backend agent's `read_image` tool (`server/tools.py`) inspects the pixels using local vision or API endpoints to detect syntax errors, UI bugs, or diagram structures directly from the user's screen.
+
+---
+
+## 11. Intelligence Stack: Routers vs Language Model vs Domain Logic
+
+Poor Man AI does **not** get smarter by treating the tiny nets as a substitute LLM. Intelligence is layered:
+
+```
+User question
+    │
+    ├─ 0. recall_lessons()        inject prior distilled rules into the plan
+    ├─ 1. local_brain.think()     intent, mode, follow-up goal, search queries
+    ├─ 2. neurons.py routers      rank skills / tools / crew (14×32×16×1)
+    ├─ 3. gather() + tools        web_search, read_url, APIs, finance, weather
+    ├─ 4. crew blackboard         facts, schedule, gap, skeptic, judge, verifier
+    ├─ 5. Answer model            Grok / cloud / local GGUF writes prose
+    └─ 6. harvest_turn()          one durable rule → lessons.jsonl (+ learned-runtime pack)
+```
+
+| Layer | Parameters | What it does |
+|---|---|---|
+| Routing nets (`server/neurons.py`) | ~1,025 weights × ~30 banks | Pick *which* skill/tool/crew fires |
+| Skills + knowledge (`server/mcp/`) | Markdown SOPs | Stop rules, sports slates, finance tapes, citations |
+| Continual lessons (`lessons.jsonl`) | Append-only rules | “Next time do X”; recalled on similar questions |
+| Tool loop (`max_steps` / thinking_level) | 4–18 steps | How much evidence is gathered |
+| Answer LLM | millions–billions | Actual English / code generation |
+
+Scaling the router to millions of weights does not add language IQ. Adding **skills, official-host reads, follow-up expansion, and Standard/Deep thinking** does.
+
+### A. Sports schedules (NFL / NBA / weekend follow-ups)
+
+Failure mode this stack was built to stop: repeating generic “Sunday 1:00 / 4:25 / 8:20 p.m. ET” windows instead of **named matchups**.
+
+| Piece | Path |
+|---|---|
+| Skill | [`server/mcp/skills/sports-schedule/SKILL.md`](server/mcp/skills/sports-schedule/SKILL.md) |
+| Playbook | [`server/mcp/knowledge/sports-schedules.md`](server/mcp/knowledge/sports-schedules.md) |
+| Crew agent | `schedule_agent` in `server/crew/specialists.py` (extracts `Away at Home` / `vs` + kickoff times) |
+| Query expansion | `SPORTS_RE` in `server/local_brain.py`; follow-ups inherit league + “named matchups kickoff times” |
+| Coverage | `server/mcp/hooks.py` treats sports evidence as thin unless the blob has `vs` / `at` / team names → gap-search `site:nfl.com` / ESPN schedule |
+| Host preference | `server/research.py` ranks `nfl.com`, `nba.com`, `espn.com`, `wnba.com`, `mlb.com`, `nhl.com` with docs hosts |
+| Prompt | `SYSTEM_CORE` + `agent.py` SYSTEM: do not answer “who is playing” with TV windows |
+
+### B. How to extend intelligence (preferred order)
+
+1. **Thinking level** — Standard or Deep (more tool steps, verify, crew). Fast is for chit-chat.
+2. **Stronger answer model** — Grok / larger local GGUF (this is the real parameter count).
+3. **New `SKILL.md` + knowledge pack** — same pattern as `sports-schedule` and `financial-markets`.
+4. **Router features + labeled pairs** in `server/neurons.py` — only to rank tools/skills, not to generate text.
+5. **QLoRA on `server/data/memory.jsonl`** via `/architecture` — teaches local facts, not general IQ. This is **manual** fine-tuning, not automatic AGI.
+
+---
+
+## 12. Continual Learning (Playbooks, Not AGI)
+
+Poor Man AI **self-improves SOPs and facts**. It does **not** train the language model after each chat and is **not** AGI.
+
+### A. What “learning” means in this repo
+
+| Mechanism | Path | Effect |
+|---|---|---|
+| Memory fact | `server/data/memory.jsonl` | Append-only recall (`memory_write` / FTS) |
+| Distilled lesson | `server/data/lessons.jsonl` | One “next time do X” rule per grounded research turn |
+| Runtime pack | `server/mcp/knowledge/learned-runtime.md` | Rolling summary of recent lessons for `consult_knowledge` |
+| Installed skill | `server/mcp/skills/<name>/SKILL.md` | User-asked methods via `write_skill` (`learn-skill`) |
+| Knowledge pack | `server/mcp/knowledge/<name>.md` | Definitions / playbooks via `write_knowledge` |
+| QLoRA job | `POST /model/train` | Optional, user-started adapter training — not per-turn |
+
+Caches for skills/knowledge invalidate on write (`server/mcp/learn.py` `_invalidate()`). Tiny routing nets still retrain only from **fixed labeled pairs** on import, not from chat.
+
+### B. Automatic harvest / recall loop
+
+```
+research/web-only or LLM final_answer
+        │
+        ▼ harvest_turn(message, answer, observations, kind)
+server/mcp/learn.py
+        ├── distill one rule (sports: named matchups; else a sourced claim)
+        ├── skip chat/calc, errors, duplicates, generic 1pm ET windows without teams
+        ├── append lessons.jsonl + short memory_write
+        └── after ≥3 lessons, rewrite learned-runtime.md
+        │
+next similar question
+        ▼ recall_lessons(goal) inside local_brain.think()
+plan.notes += "Learned: …"
+```
+
+* **Orchestrator hooks**: `run_web_only_agent` and `run_agent` call `harvest_turn` after a grounded answer (`server/agent.py`).
+* **Tools**: `harvest_lesson`, `recall_learned`, `list_learned`, `write_skill`, `write_knowledge`.
+* **Skills**: [`continual-learn`](server/mcp/skills/continual-learn/SKILL.md) (auto on research), [`learn-skill`](server/mcp/skills/learn-skill/SKILL.md) (when the user says learn / teach yourself).
+* **Playbook**: [`skill-learning.md`](server/mcp/knowledge/skill-learning.md).
+
+### C. Explicit limits (do not document this as AGI)
+
+* Answer model **weights do not change** from harvest or memory.
+* Harvest stores **one short rule**, not the whole essay, and refuses junk/tool-error dumps.
+* `write_skill` / `write_knowledge` are sandboxed (name regex, ~24k body cap, existing tools only).
+* Growing `lessons.jsonl` makes **this machine** better at repeating its own procedures; it does not yield general intelligence.

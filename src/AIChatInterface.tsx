@@ -78,7 +78,7 @@ export const AIChatInterface: React.FC = () => {
         updatedAt: Date.now(),
         messages: INITIAL_MESSAGES,
         mode: 'agent',
-        thinkingLevel: 'low'
+        thinkingLevel: 'medium'
       }
     ];
   });
@@ -98,13 +98,13 @@ export const AIChatInterface: React.FC = () => {
       updatedAt: Date.now(),
       messages: INITIAL_MESSAGES,
       mode: 'agent',
-      thinkingLevel: 'low'
+      thinkingLevel: 'medium'
     };
 
   const [messages, setMessages] = useState<ChatMessage[]>(currentSession.messages);
   const [mode, setMode] = useState<'agent' | 'code'>(currentSession.mode || 'agent');
   const [thinkingLevel, setThinkingLevel] = useState<'low' | 'medium' | 'high'>(
-    currentSession.thinkingLevel || 'low'
+    currentSession.thinkingLevel || 'medium'
   );
 
   const [input, setInput] = useState('');
@@ -141,7 +141,7 @@ export const AIChatInterface: React.FC = () => {
     if (session) {
       setMessages(session.messages);
       setMode(session.mode || 'agent');
-      setThinkingLevel(session.thinkingLevel || 'low');
+      setThinkingLevel(session.thinkingLevel || 'medium');
     }
     localStorage.setItem(ACTIVE_SESSION_KEY, activeSessionId);
   }, [activeSessionId]);

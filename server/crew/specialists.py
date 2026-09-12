@@ -160,7 +160,53 @@ def units_agent(board: Blackboard) -> None:
 def time_agent(board: Blackboard) -> None:
     q = _q(board)
     when = "today" if "today" in q or "tonight" in q else "as-of now"
+    if re.search(r"\b(weekend|sunday|monday|nfl|nba|kickoff)\b", q):
+        when = "this weekend slate (named games + kickoff times, not generic TV windows)"
     board.post("time", "temporal scope", f"Question time window: {when}. Prefer current observations over old pages.")
+
+
+_MATCHUP_RE = re.compile(
+    r"([A-Z][A-Za-z.]{2,}(?:\s+[A-Z][A-Za-z.]{2,}){0,3})\s+(?:at|@|vs\.?|versus)\s+([A-Z][A-Za-z.]{2,}(?:\s+[A-Z][A-Za-z.]{2,}){0,3})",
+)
+
+
+def schedule_agent(board: Blackboard) -> None:
+    blob = _blob(board)
+    games = []
+    seen: set[str] = set()
+    for m in _MATCHUP_RE.finditer(blob):
+        pair = f"{m.group(1).strip()} at {m.group(2).strip()}"
+        k = pair.lower()
+        if k in seen or len(pair) > 80:
+            continue
+        seen.add(k)
+        games.append(pair)
+        if len(games) >= 16:
+            break
+    times = re.findall(r"\b\d{1,2}:\d{2}\s*(?:a\.?m\.?|p\.?m\.?)(?:\s*ET)?\b", blob, re.I)
+    q = _q(board)
+    sports = bool(re.search(r"\b(nfl|nba|wnba|mlb|nhl|soccer|weekend|kickoff|teams?)\b", q))
+    if not sports and not games:
+        board.post("schedule", "slate", "No sports slate requested.")
+        return
+    if games:
+        board.post(
+            "schedule",
+            "slate",
+            "Named matchups from pages: " + "; ".join(games[:12])
+            + (f". Kickoffs seen: {', '.join(times[:8])}." if times else ". Read official schedule if times missing."),
+            games=games,
+            times=times[:12],
+        )
+        return
+    board.post(
+        "schedule",
+        "slate",
+        "Sports question but no Away-at-Home / vs matchups in observations. "
+        "Gap-search nfl.com/schedules or espn.com/nfl/schedule — do not recap generic 1pm/4pm/SNF windows.",
+        games=[],
+        times=times[:8],
+    )
 
 
 def compare_agent(board: Blackboard) -> None:
@@ -354,6 +400,7 @@ ROSTER: list[tuple[str, AgentFn]] = [
     ("numbers", numbers_agent),
     ("units", units_agent),
     ("time", time_agent),
+    ("schedule", schedule_agent),
     ("compare", compare_agent),
     ("howto", howto_agent),
     ("risk", risk_agent),

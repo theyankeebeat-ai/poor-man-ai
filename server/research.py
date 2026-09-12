@@ -148,6 +148,12 @@ async def gather(
         "nodejs.org",
         "github.com",
         "stackoverflow.com",
+        "nfl.com",
+        "nba.com",
+        "espn.com",
+        "wnba.com",
+        "mlb.com",
+        "nhl.com",
     )
 
     def _hit_rank(h: dict[str, str]) -> tuple[int, int]:

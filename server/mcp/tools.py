@@ -208,6 +208,18 @@ async def write_knowledge(args: dict[str, Any]) -> str:
     return await _write(args)
 
 
+async def harvest_lesson(args: dict[str, Any]) -> str:
+    from server.mcp.learn import harvest_lesson as _h
+
+    return await _h(args)
+
+
+async def recall_learned(args: dict[str, Any]) -> str:
+    from server.mcp.learn import recall_learned as _r
+
+    return await _r(args)
+
+
 async def financial_quote(args: dict[str, Any]) -> str:
     from server.finance import fetch_financial_quote
 
@@ -432,6 +444,38 @@ MCP_TOOLS: list[dict[str, Any]] = [
                     "sources": {"type": "array", "items": {"type": "string"}},
                 },
                 "required": ["name", "description", "body"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "harvest_lesson",
+            "description": "Distill a durable rule from this turn into lessons.jsonl (continual playbook learning, not AGI / not weight training).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "message": {"type": "string"},
+                    "answer": {"type": "string"},
+                    "kind": {"type": "string"},
+                    "observations": {"type": "array"},
+                },
+                "required": ["message", "answer"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "recall_learned",
+            "description": "Retrieve distilled rules from prior turns that overlap this question.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "limit": {"type": "integer"},
+                },
+                "required": ["query"],
             },
         },
     },

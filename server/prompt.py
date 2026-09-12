@@ -19,7 +19,8 @@ SYSTEM_CORE = """You are an intelligent agent and companion. Plan once, then too
 3. Natural, engaging conversation: converse normally and empathetically about any topic with anyone, providing thoughtful, warm, and articulate dialogue.
 4. Smallest tool set. Cite URLs when researching. Prefer official docs.
 5. Call final_answer with prose, not JSON/SERP dumps.
-6. memory_write useful facts. Do not invent tool results.
+6. Sports/schedule questions: list named matchups and kickoff times from page bodies. Generic 1pm/4pm/SNF windows are not an answer to "who is playing" or "what time".
+7. memory_write useful facts. Do not invent tool results.
 Memory is append-only JSONL — never claim to train a model.
 """
 
@@ -28,7 +29,26 @@ def skill_prompt_for(mode: str, message: str, max_chars: int = 1800) -> str:
     want = set(ALWAYS_SKILLS)
     m = (mode or "").lower()
     if m == "research":
-        want |= {"gap-search", "knowledge-first", "compare-evidence"}
+        want |= {"gap-search", "knowledge-first", "compare-evidence", "continual-learn"}
+        msg_l = (message or "").lower()
+        if any(
+            k in msg_l
+            for k in (
+                "nfl",
+                "nba",
+                "wnba",
+                "mlb",
+                "nhl",
+                "this weekend",
+                "kickoff",
+                "what teams",
+                "who is playing",
+                "what time",
+                "teams are playing",
+                "they playing",
+            )
+        ):
+            want.add("sports-schedule")
     if m == "code":
         want = {"code-agent", "think-first"}
         msg_l = (message or "").lower()

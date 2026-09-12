@@ -300,12 +300,12 @@ SYSTEM = """You are a general research agent. Follow this thought order and do n
 3. Gather — structured APIs, then web_search, then read_url. Cite URLs. For media: read_image / youtube_summarize / local_video_summarize.
 4. Fill gaps — if coverage is thin, gap_search or followup_search. Then stop searching.
 5. Debate — specialists talk via agent_talk (gap↔librarian, skeptic↔facts, numbers↔units). Compare/contrast with shared criteria; stay impartial.
-6. Compose — call final_answer so the user sees prose/code, not JSON or SERP dumps. Match writing form when asked (essay, editorial, podcast, documentary, journal).
+6. Compose — call final_answer so the user sees prose/code, not JSON or SERP dumps. Match writing form when asked (essay, editorial, podcast, documentary, journal). For sports slates, name the games (Away at Home) and times from observations; do not repeat generic TV windows.
 7. Verify — verify_claims against observations; qualify unsupported lines. Never hallucinate citations or media content.
 8. Stop — memory_write useful facts. Do not invent tool results. No login walls.
 For stock tickers, equity quotes, after-hours tapes, and pre-market prices: call financial_quote or financial_compare (connects to Google Finance, Nasdaq, Yahoo Finance, and MarketWatch).
 Use consult_knowledge for playbooks (including media-literacy, summarize-method, writing-forms, argument-logic, epistemic-virtues, skill-learning, financial-markets).
-When the user asks you to learn a method from the internet: list_learned → research → write_skill and/or write_knowledge → memory_write receipt. That is how you self-improve; you do not train model weights.
+When the user asks you to learn a method from the internet: list_learned → research → write_skill and/or write_knowledge → memory_write receipt. After research turns the orchestrator harvests a distilled rule into lessons.jsonl (recall_learned next time). That is self-improvement of playbooks — not AGI and not training model weights.
 Use extract_claims / compare_sources / cite_pack before publishing.
 Memory is append-only JSONL — never claim to train a foundation model.
 """
@@ -406,9 +406,18 @@ async def run_web_only_agent(
             answer = "\n\n".join(bits) or "No evidence gathered."
 
     if answer and not answer.lstrip().lower().startswith(("{", "error:", "timeout")):
-        yield _sse({"type": "tool", "name": "memory_write", "args": {"fact": answer[:500]}})
-        mem = await run_tool("memory_write", {"fact": answer[:500]})
-        yield _sse({"type": "observation", "name": "memory_write", "text": mem[:2000]})
+        from server.mcp.learn import harvest_turn
+
+        learned = harvest_turn(
+            message, answer, observations, str((thought or {}).get("kind") or "research")
+        )
+        if learned.get("ok") and not learned.get("skipped"):
+            yield _sse({"type": "tool", "name": "harvest_lesson", "args": {"kind": (thought or {}).get("kind")}})
+            yield _sse({"type": "observation", "name": "harvest_lesson", "text": str(learned.get("lesson", {}).get("rule") or "")[:2000]})
+        else:
+            yield _sse({"type": "tool", "name": "memory_write", "args": {"fact": answer[:500]}})
+            mem = await run_tool("memory_write", {"fact": answer[:500]})
+            yield _sse({"type": "observation", "name": "memory_write", "text": mem[:2000]})
     for i in range(0, len(answer), 48):
         yield _sse({"type": "token", "text": answer[i : i + 48]})
     yield _sse({"type": "done", "text": answer})
@@ -715,6 +724,12 @@ async def run_agent(
                 yield _sse({"type": "done", "text": text})
                 if text and not _BAD_CACHE.search(text):
                     cache_put("answer", text, *replay_parts)
+                    try:
+                        from server.mcp.learn import harvest_turn
+
+                        harvest_turn(message, text, observations, str(thought.get("kind") or mode or "research"))
+                    except Exception:
+                        pass
                 yield _sse(_metrics(t_first_plan_ms=t_first_plan, n_llm_calls=n_llm, n_tools=n_tools, t_tools_ms=int(t_tools * 1000), t_first_token_ms=t_first_token, cache=cache_stats()))
                 return
 

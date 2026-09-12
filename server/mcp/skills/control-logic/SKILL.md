@@ -16,5 +16,6 @@ Prefer:
 1. Structured APIs over SERP titles.
 2. Page bodies over titles.
 3. Thread-resolved queries over the raw follow-up string.
+4. For sports, a schedule page with named matchups over memorized kickoff windows.
 
 Do not browse login walls. Memory is append-only JSONL, not training.

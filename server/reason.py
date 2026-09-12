@@ -139,6 +139,8 @@ def plan_from(message: str, history: list[Turn]) -> Plan:
     notes.append(f"Units: {units}")
     if thought.get("cheap"):
         notes.append("Cheap handler — skip web.")
+    for lesson in thought.get("lessons") or []:
+        notes.append(f"Learned: {lesson}")
     fetch = int(thought.get("fetch_urls") or 0)
     return Plan(
         goal=goal,

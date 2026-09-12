@@ -82,7 +82,19 @@ def classify_intent(message: str, history: list[Turn]) -> dict[str, Any]:
         elif shared and not topic_shift:
             follow = True
     kind = "factual"
-    if re.search(r"\b(weather|forecast|rain|umbrella|temp|°)\b", q):
+    if re.search(
+        r"\b(nfl|nba|wnba|mlb|nhl|kickoff|this weekend|what teams|who(?:'s| is) playing)\b",
+        q,
+    ) or (
+        history
+        and re.search(r"\b(what time|which teams|who is playing|what teams)\b", q)
+        and re.search(
+            r"\b(nfl|nba|wnba|sport|football|basketball)\b",
+            " ".join(t.text for t in history[-6:] if t.role == "user").lower(),
+        )
+    ):
+        kind = "sports"
+    elif re.search(r"\b(weather|forecast|rain|umbrella|temp|°)\b", q):
         kind = "weather"
     elif re.search(
         r"\b((?:run|execute)\s+(?:yarn|npm|pnpm|pytest|npx)|"
@@ -120,7 +132,25 @@ def coverage(message: str, observations: list[tuple[str, str]]) -> float:
     if not blob.strip():
         return 0.0
     hit = sum(1 for t in terms if t in blob)
-    return hit / max(len(terms), 1)
+    score = hit / max(len(terms), 1)
+    q = (message or "").lower()
+    sports = bool(
+        re.search(r"\b(nfl|nba|wnba|mlb|nhl|kickoff|weekend|teams?|playing)\b", q)
+    )
+    if sports:
+        has_matchup = bool(re.search(r"\b(vs\.?|versus|\bat\b|@)\b", blob))
+        has_team = bool(
+            re.search(
+                r"\b(buccaneers|bengals|chiefs|eagles|lakers|celtics|knicks|warriors|"
+                r"cowboys|packers|patriots|49ers|rams|steelers)\b",
+                blob,
+            )
+        )
+        if not has_matchup and not has_team:
+            score = min(score, 0.28)
+        elif has_matchup or has_team:
+            score = max(score, 0.72)
+    return score
 
 
 def missing_terms(message: str, observations: list[tuple[str, str]]) -> list[str]:
@@ -156,6 +186,13 @@ def gap_queries(message: str, plan: Plan, observations: list[tuple[str, str]]) -
     extras = []
     if miss:
         extras.append(f"{message} {' '.join(miss[:4])}".strip())
+    blob = "\n".join(t for _, t in observations).lower()
+    if re.search(r"\b(nfl|nba|wnba|mlb|nhl|weekend|kickoff|teams?)\b", (message or "").lower()):
+        if not re.search(r"\b(vs\.?|versus|\bat\b)\b", blob):
+            extras = [
+                "NFL schedule this weekend site:nfl.com",
+                "NFL week schedule site:espn.com/nfl/schedule",
+            ]
     extras.append(f"{base} official documentation")
     extras.append(f"{message} {loc} current".strip())
     seen: set[str] = {q.lower() for q in plan.search_queries}

@@ -33,7 +33,7 @@ class ChatRequest(BaseModel):
     history: list[ChatTurn] = Field(default_factory=list)
     workspace: Optional[str] = None
     mode: Optional[str] = None
-    thinking_level: Optional[str] = Field(default="low", description="Thinking effort: low, medium, or high. Default low for low-end PCs.")
+    thinking_level: Optional[str] = Field(default="medium", description="Thinking effort: low, medium, or high. Default medium (Standard) for better tool use.")
     intelligence: Optional[IntelligenceParams] = None
 
 class TTSRequest(BaseModel):

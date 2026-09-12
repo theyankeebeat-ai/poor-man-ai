@@ -1,7 +1,7 @@
 """Named tiny nets: one bank of neurons per MCP layer.
 
-Same architecture (10×12×1), separate weights. Not a language model.
-Banks: reason, skills, hooks, tools, agents.
+Router only — not a language model. Architecture: INPUT × HIDDEN × HIDDEN2 × 1.
+Banks: reason, skills, hooks, tools, agents, plus crew:<role>.
 """
 
 from __future__ import annotations
@@ -11,8 +11,9 @@ import random
 import re
 from typing import Sequence
 
-INPUT = 10
-HIDDEN = 12
+INPUT = 14
+HIDDEN = 32
+HIDDEN2 = 16
 
 ALWAYS_SKILLS = frozenset({"think-first", "thread-context", "control-logic", "conversational-chat"})
 ALWAYS_AGENTS = frozenset(
@@ -26,6 +27,7 @@ SKILL_TO_AGENTS: dict[str, frozenset[str]] = {
     "control-logic": frozenset({"logic"}),
     "conversational-chat": frozenset({"companion", "judge"}),
     "gap-search": frozenset({"gap", "scout", "librarian"}),
+    "sports-schedule": frozenset({"librarian", "scout", "facts", "time", "gap"}),
     "knowledge-first": frozenset({"knowledge", "planner"}),
     "agent-exchange": frozenset({"exchange"}),
     "cite-sources": frozenset({"citations"}),
@@ -38,6 +40,7 @@ SKILL_TO_AGENTS: dict[str, frozenset[str]] = {
     "argue-and-synthesize": frozenset({"exchange", "compare", "skeptic", "judge"}),
     "stay-grounded": frozenset({"verifier", "skeptic", "citations"}),
     "learn-skill": frozenset({"knowledge", "scout", "librarian", "planner"}),
+    "continual-learn": frozenset({"memory", "knowledge", "gap"}),
     "lint-fix": frozenset({"planner", "logic"}),
     "code-agent": frozenset({"planner", "logic"}),
 }
@@ -54,7 +57,8 @@ CREW_ROLES: dict[str, str] = {
     "facts": "extract claims definitions java what is",
     "numbers": "temperature quantities numbers rain degrees",
     "units": "metric imperial celsius fahrenheit convert",
-    "time": "today tonight now temporal",
+    "time": "today tonight now temporal kickoff weekend schedule",
+    "schedule": "nfl nba wnba mlb nhl soccer matchup kickoff slate teams playing this weekend",
     "compare": "disagreement closer versus spread",
     "howto": "how to install setup code example steps",
     "risk": "caveats do not invent",
@@ -84,7 +88,12 @@ CREW_FIT: dict[str, list[str]] = {
     "compare": ["which is closer brazil or argentina", "compare sources"],
     "skeptic": ["do I need an umbrella", "will it rain today"],
     "api": ["weather in tokyo", "forecast austin"],
-    "time": ["will it rain today", "weather tonight"],
+    "time": ["will it rain today", "weather tonight", "what time are they playing this weekend"],
+    "schedule": [
+        "any nfl or nba sport playing this weekend",
+        "so can you tell me what teams are playing",
+        "nfl schedule this weekend kickoff times",
+    ],
     "gap": ["thin coverage missing terms"],
     "citations": ["cite sources for java"],
     "memory": ["remember austin uses metric"],
@@ -123,48 +132,126 @@ def features(question: str, sent: str, terms: Sequence[str] | None = None, entit
     rev = sum(1 for t in lab_toks if t in q) / max(len(lab_toks), 1)
     length = min(len(s), 400) / 400.0
     jsony = 1.0 if (s.strip()[:1] in "{[") else 0.0
+    sport_q = 1.0 if re.search(
+        r"\b(nfl|nba|wnba|mlb|nhl|soccer|kickoff|matchup|this weekend|teams? (?:are )?playing)\b",
+        q,
+    ) else 0.0
+    sport_s = 1.0 if re.search(
+        r"\b(vs\.?|versus|\bat\b|kickoff|p\.?m\.?\s*et|schedule|buccaneers|lakers|"
+        r"web_search|read_url|gap_search|followup_search|sports-schedule)\b",
+        s,
+    ) else 0.0
+    sport = 1.0 if sport_q and sport_s else 0.0
+    official = 1.0 if re.search(
+        r"\b(nfl\.com|nba\.com|espn\.com|wikipedia|official|docs\.|github\.com)\b",
+        s,
+    ) else 0.0
+    follow = 1.0 if re.search(
+        r"\b(they|them|this weekend|what time|what teams|also|same)\b",
+        q,
+    ) else 0.0
+    when_q = bool(re.search(r"\b(when|what time|kickoff|schedule)\b", q))
+    who_q = bool(re.search(r"\b(who|which teams?|what teams?|playing)\b", q))
+    time_s = bool(re.search(r"\b(\d{1,2}:\d{2}|p\.?m\.?|a\.?m\.?|et|kickoff)\b", s))
+    name_s = bool(re.search(r"\b(vs\.?|versus|\bat\b|[A-Z][a-z]{3,}\s+[A-Z][a-z]{3,})\b", sent or ""))
+    qalign = 0.0
+    if when_q and time_s:
+        qalign = 1.0
+    elif who_q and (name_s or sport_s):
+        qalign = 1.0
+    elif when_q and not time_s:
+        qalign = 0.0
     # Mix reverse overlap into q_in_s so tool/skill names match the query.
-    return [overlap, ehit, junk, trap, defin, geo, num, max(q_in_s, rev), length, jsony]
+    return [
+        overlap,
+        ehit,
+        junk,
+        trap,
+        defin,
+        geo,
+        num,
+        max(q_in_s, rev),
+        length,
+        jsony,
+        sport,
+        official,
+        follow,
+        qalign,
+    ]
 
 
 class TinyNet:
+    """Two hidden layers. Scores labels / snippets. Does not generate language."""
+
     def __init__(self, seed: int = 7) -> None:
         rng = random.Random(seed)
-        self.w1 = [[rng.uniform(-0.4, 0.4) for _ in range(INPUT)] for _ in range(HIDDEN)]
+        self.w1 = [[rng.uniform(-0.25, 0.25) for _ in range(INPUT)] for _ in range(HIDDEN)]
         self.b1 = [0.0] * HIDDEN
-        self.w2 = [rng.uniform(-0.4, 0.4) for _ in range(HIDDEN)]
-        self.b2 = 0.0
+        self.w2 = [[rng.uniform(-0.25, 0.25) for _ in range(HIDDEN)] for _ in range(HIDDEN2)]
+        self.b2 = [0.0] * HIDDEN2
+        self.w3 = [rng.uniform(-0.25, 0.25) for _ in range(HIDDEN2)]
+        self.b3 = 0.0
 
-    def forward(self, x: list[float]) -> tuple[list[float], float]:
-        h = []
+    def forward(self, x: list[float]) -> tuple[list[float], list[float], float]:
+        h1 = []
         for i in range(HIDDEN):
-            z = self.b1[i] + sum(self.w1[i][j] * x[j] for j in range(INPUT))
-            h.append(_sigmoid(z))
-        y = _sigmoid(self.b2 + sum(self.w2[i] * h[i] for i in range(HIDDEN)))
-        return h, y
+            z = self.b1[i] + sum(self.w1[i][j] * x[j] for j in range(min(len(x), INPUT)))
+            h1.append(_sigmoid(z))
+        h2 = []
+        for k in range(HIDDEN2):
+            z = self.b2[k] + sum(self.w2[k][i] * h1[i] for i in range(HIDDEN))
+            h2.append(_sigmoid(z))
+        y = _sigmoid(self.b3 + sum(self.w3[k] * h2[k] for k in range(HIDDEN2)))
+        return h1, h2, y
 
-    def train(self, rows: list[tuple[list[float], float]], epochs: int = 70, lr: float = 0.35) -> None:
+    def train(self, rows: list[tuple[list[float], float]], epochs: int = 70, lr: float = 0.25) -> None:
         for _ in range(epochs):
             for x, t in rows:
-                h, y = self.forward(x)
+                h1, h2, y = self.forward(x)
                 err = y - t
                 dy = err * _dsig(y)
-                dh = [dy * self.w2[i] * _dsig(h[i]) for i in range(HIDDEN)]
+                dh2 = [dy * self.w3[k] * _dsig(h2[k]) for k in range(HIDDEN2)]
+                dh1 = [
+                    _dsig(h1[i]) * sum(dh2[k] * self.w2[k][i] for k in range(HIDDEN2))
+                    for i in range(HIDDEN)
+                ]
+                for k in range(HIDDEN2):
+                    self.w3[k] -= lr * dy * h2[k]
+                    self.b2[k] -= lr * dh2[k]
+                    for i in range(HIDDEN):
+                        self.w2[k][i] -= lr * dh2[k] * h1[i]
+                self.b3 -= lr * dy
                 for i in range(HIDDEN):
-                    self.w2[i] -= lr * dy * h[i]
-                    self.b1[i] -= lr * dh[i]
+                    self.b1[i] -= lr * dh1[i]
                     for j in range(INPUT):
-                        self.w1[i][j] -= lr * dh[i] * x[j]
-                self.b2 -= lr * dy
+                        self.w1[i][j] -= lr * dh1[i] * x[j]
 
     def score(self, x: list[float]) -> float:
-        return self.forward(x)[1]
+        return self.forward(x)[2]
+
+    def n_params(self) -> int:
+        return (
+            INPUT * HIDDEN
+            + HIDDEN
+            + HIDDEN * HIDDEN2
+            + HIDDEN2
+            + HIDDEN2
+            + 1
+        )
+
+
+def arch_label() -> str:
+    return f"{INPUT}x{HIDDEN}x{HIDDEN2}x1"
+
+
+def params_per_net() -> int:
+    return TinyNet(seed=1).n_params()
 
 
 def _fit(seed: int, pairs: list[tuple[str, str, float]]) -> TinyNet:
     net = TinyNet(seed=seed)
     rows = [(features(q, s), y) for q, s, y in pairs]
-    net.train(rows, epochs=120, lr=0.4)
+    net.train(rows, epochs=160, lr=0.35)
     return net
 
 
@@ -188,6 +275,36 @@ _CORPORA: dict[str, list[tuple[str, str, float]]] = {
         ("weather in Austin", "Austin city council voted on zoning.", 0.2),
         ("tell me about life", "Life is full of wonderful surprises, growth, connection, and learning experiences.", 1.0),
         ("can we have a normal conversation", "Absolutely! I would love to talk about anything that is on your mind.", 1.0),
+        (
+            "any nfl or nba sport playing this weekend",
+            "NFL Week 1: Tampa Bay Buccaneers at Cincinnati Bengals, Sunday 1:00 p.m. ET. NBA regular season is off until October.",
+            1.0,
+        ),
+        (
+            "any nfl or nba sport playing this weekend",
+            "Sunday early games 1:00 p.m. ET, late 4:25 p.m. ET, SNF 8:20 p.m. ET.",
+            0.15,
+        ),
+        (
+            "so can you tell me what teams are playing",
+            "Sunday slate includes Buccaneers at Bengals, Chiefs at Chargers. Full list on nfl.com/schedules.",
+            1.0,
+        ),
+        (
+            "so can you tell me what teams are playing",
+            "I don't have your time zone, so here are the usual U.S. Eastern windows.",
+            0.05,
+        ),
+        (
+            "what time are they playing this weekend",
+            "Buccaneers at Bengals, Sunday 1:00 p.m. ET; Sunday Night Football 8:20 p.m. ET on nfl.com.",
+            1.0,
+        ),
+        (
+            "what time are they playing this weekend",
+            "Life is full of wonderful surprises, growth, connection, and learning experiences.",
+            0.0,
+        ),
     ],
     "skills": [
         ("hi what can you do", "think-first classify intent and thought order", 1.0),
@@ -212,6 +329,13 @@ _CORPORA: dict[str, list[tuple[str, str, float]]] = {
         ("learn how to do code review", "learn-skill install playbook from web", 1.0),
         ("yarn lint fix the errors", "lint-fix run lint search patch", 1.0),
         ("build a vite react app", "code-agent closed coding loop", 1.0),
+        ("any nfl or nba this weekend", "sports-schedule named matchups kickoff times official slate", 1.0),
+        ("what teams are playing", "sports-schedule named matchups kickoff times official slate", 0.95),
+        ("what teams are playing", "conversational-chat open-ended engaging friendly dialogue", 0.05),
+        ("can we have a normal conversation", "sports-schedule named matchups kickoff times official slate", 0.02),
+        ("nfl games this weekend who plays", "conversational-chat open-ended engaging friendly dialogue", 0.05),
+        ("nfl schedule this weekend", "gap-search extra web searches when evidence is thin", 0.85),
+        ("nfl schedule this weekend", "thread-context bind place and units", 0.8),
     ],
     "hooks": [
         ("on_user_message hi", "think-first", 1.0),
@@ -224,6 +348,8 @@ _CORPORA: dict[str, list[tuple[str, str, float]]] = {
         ("on_before_judge draft ready", "conversational-chat", 0.8),
         ("on_before_judge draft ready", "gap-search", 0.15),
         ("on_plan weather austin", "thread-context", 0.9),
+        ("on_plan nfl weekend schedule", "sports-schedule", 1.0),
+        ("on_observations no team names", "gap-search", 1.0),
         ("on_verify claims", "verify-answer", 1.0),
     ],
     "tools": [
@@ -252,6 +378,13 @@ _CORPORA: dict[str, list[tuple[str, str, float]]] = {
         ("transcribe the local video", "local_video_summarize", 0.95),
         ("learn a new skill from the web", "write_skill", 0.9),
         ("install a knowledge pack", "write_knowledge", 0.85),
+        ("remember this method for next time", "harvest_lesson", 0.9),
+        ("what did we learn about nfl schedules", "recall_learned", 0.9),
+        ("any nfl or nba this weekend", "web_search", 1.0),
+        ("what teams are playing this weekend nfl", "read_url", 1.0),
+        ("what time are they playing", "followup_search", 0.95),
+        ("nfl schedule teams kickoff", "gap_search", 0.9),
+        ("nfl games this weekend", "weather_compare", 0.0),
     ],
     "agents": [
         ("rain in austin", "numbers", 0.9),
@@ -266,6 +399,11 @@ _CORPORA: dict[str, list[tuple[str, str, float]]] = {
         ("how are you doing today my friend", "companion", 0.95),
         ("missing evidence", "gap", 1.0),
         ("missing evidence", "time", 0.2),
+        ("nfl nba this weekend who is playing", "schedule", 1.0),
+        ("what teams are playing", "schedule", 0.95),
+        ("what time are they playing this weekend", "time", 0.9),
+        ("nfl games sunday slate", "facts", 0.85),
+        ("hi thanks", "schedule", 0.05),
     ],
 }
 

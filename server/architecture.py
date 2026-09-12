@@ -213,13 +213,13 @@ PRESET_ARCHITECTURES: Dict[str, ArchitectureSpec] = {
     "poor_man_router_10x12": ArchitectureSpec(
         name="PoorMan-NeuralBank-Router",
         family=ModelFamily.TINY_NEURON_ROUTER,
-        hidden_dim=12,
-        num_layers=2,
+        hidden_dim=32,
+        num_layers=3,
         num_attention_heads=1,
         num_kv_heads=1,
-        vocab_size=10,
+        vocab_size=14,
         max_context_length=512,
-        intermediate_dim=24,
+        intermediate_dim=16,
     )
 }
 

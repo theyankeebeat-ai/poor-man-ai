@@ -45,7 +45,7 @@ export async function streamChat(
       history,
       workspace: opts.workspace || undefined,
       mode: opts.mode || undefined,
-      thinking_level: opts.thinking_level || 'low',
+      thinking_level: opts.thinking_level || 'medium',
       intelligence: opts.intelligence || loadIntelligence(),
     }),
     signal,

@@ -79,6 +79,12 @@ MEDIA_RE = re.compile(
     r"\b(youtube|video|image|picture|photo|summarize)\b|https?://(?:www\.)?(?:youtube\.com|youtu\.be)/",
     re.I,
 )
+SPORTS_RE = re.compile(
+    r"\b(nfl|nba|wnba|mlb|nhl|mls|soccer|football|basketball|kickoff|"
+    r"monday night|sunday night|this weekend|who(?:'s| is) playing|"
+    r"what teams|what time (?:are|is) (?:they|it) playing)\b",
+    re.I,
+)
 _OPS = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
@@ -242,6 +248,21 @@ def _queries(message: str, history: list[Turn], mode: str, loc: str, goal: str) 
         qs = [f"{loc} weather forecast", f"{loc} current conditions"]
     if mode == "media" and "youtube" in message.lower():
         qs = [message]
+    sport_blob = f"{message} {goal}"
+    if SPORTS_RE.search(sport_blob):
+        year = ""
+        try:
+            from datetime import date
+
+            year = str(date.today().year)
+        except Exception:
+            year = ""
+        qs = [
+            f"NFL schedule this weekend {year} site:nfl.com".strip(),
+            f"NFL schedule this week {year} site:espn.com".strip(),
+            f"NBA schedule this week {year} site:nba.com".strip(),
+            f"{goal} matchups kickoff times",
+        ]
     seen: set[str] = set()
     out: list[str] = []
     for q in qs:
@@ -249,7 +270,8 @@ def _queries(message: str, history: list[Turn], mode: str, loc: str, goal: str) 
         if k and k not in seen:
             seen.add(k)
             out.append(q.strip())
-    return out[:2]  # fewer searches = faster turns
+    cap = 4 if SPORTS_RE.search(sport_blob) else 2
+    return out[:cap]
 
 
 def think(message: str, history: list[Turn]) -> dict[str, Any]:
@@ -275,12 +297,20 @@ def think(message: str, history: list[Turn]) -> dict[str, Any]:
         fetch = 0
     elif mode in {"weather", "media", "howto"}:
         fetch = 1
+    elif SPORTS_RE.search(f"{message} {goal}"):
+        fetch = 3
     else:
         fetch = 2
     if cheap:
         order = ["understand", "plan", "skip-gather", mode, "compose", "stop"]
     else:
         order = ["understand", "plan", "gather", "debate", "compose", "verify", "stop"]
+    lesson_rules: list[str] = []
+    if not cheap:
+        from server.mcp.learn import recall_lessons
+
+        lesson_rows = recall_lessons(f"{goal} {message}", limit=3)
+        lesson_rules = [str(r.get("rule") or "")[:220] for r in lesson_rows if r.get("rule")]
     kind = intent.get("kind") or mode
     if mode in {"weather", "howto", "media", "memory", "calc", "chat"} and kind in {
         "factual",
@@ -305,6 +335,7 @@ def think(message: str, history: list[Turn]) -> dict[str, Any]:
         "goal": goal,
         "queries": queries,
         "fetch_urls": fetch,
+        "lessons": lesson_rules,
     }
 
 
@@ -549,8 +580,11 @@ def cheap_answer(message: str, history: list[Turn], thought: dict[str, Any] | No
 def followup_goal(message: str, history: list[Turn]) -> str:
     prior = next((t.text for t in reversed(history) if t.role == "user"), "")
     ent = thread_entities(history, message)
-    if ent.get("follow_up") == "yes" and prior and len(message.split()) <= 12:
+    if ent.get("follow_up") == "yes" and prior and len(message.split()) <= 16:
         loc = ent.get("location") or ""
         extra = f" {loc}" if loc and loc.lower() not in message.lower() else ""
-        return f"{message} (continuing: {prior[:160]}){extra}".strip()
+        sport = ""
+        if SPORTS_RE.search(prior) or SPORTS_RE.search(message):
+            sport = " NFL NBA schedule this weekend named matchups kickoff times"
+        return f"{message}{sport} (continuing: {prior[:160]}){extra}".strip()
     return message

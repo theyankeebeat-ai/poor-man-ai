@@ -12,8 +12,10 @@ topics: [learn, skill, self-improve, install, playbook, teach]
 | Skill | `server/mcp/skills/<name>/SKILL.md` | Injected into agent prompts by phase/hooks |
 | Knowledge pack | `server/mcp/knowledge/<name>.md` | Retrieved via `consult_knowledge` |
 | Memory fact | `server/data/memory.jsonl` | Append-only recall; not a playbook |
+| Lesson | `server/data/lessons.jsonl` | Distilled “next time do X” rules harvested after turns |
+| Runtime pack | `server/mcp/knowledge/learned-runtime.md` | Rolling summary of recent lessons |
 
-None of these train weights. Reloading is mtime-based; after `write_skill` / `write_knowledge` caches clear automatically.
+None of these train weights or produce AGI. Reloading is mtime-based; after `write_skill` / `write_knowledge` caches clear automatically. The orchestrator also runs `harvest_turn` after research answers.
 
 ## Install checklist
 

@@ -145,11 +145,15 @@ export const BrainEngine: React.FC = () => {
 
           <div className="space-y-3 text-xs">
             {neurons?.banks ? (
-              Object.entries(neurons.banks).map(([bankName]: [string, any]) => (
+              (Array.isArray(neurons.banks) ? neurons.banks : Object.keys(neurons.banks)).map(
+                (bankName: string) => (
                 <div key={bankName} className="space-y-1">
                   <div className="flex justify-between text-[11px]">
-                    <span className="capitalize">{bankName} Layer Net</span>
-                    <span className="font-mono text-indigo-400">10x12x1 weights</span>
+                    <span className="capitalize">{String(bankName).replace(/^crew:/, 'crew ')} net</span>
+                    <span className="font-mono text-indigo-400">
+                      {neurons.arch || '14x32x16x1'}
+                      {neurons.params_per_net ? ` · ${neurons.params_per_net}w` : ''}
+                    </span>
                   </div>
                   <div className={`w-full h-1.5 rounded-full ${colors.badgeBg} overflow-hidden`}>
                     <div className="h-full bg-indigo-500 rounded-full w-4/5" />

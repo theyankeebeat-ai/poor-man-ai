@@ -131,12 +131,17 @@ def mcp_knowledge() -> dict:
 
 @app.get("/mcp/neurons")
 def mcp_neurons() -> dict:
-    from server.neurons import banks, crew_banks
+    from server.neurons import arch_label, banks, crew_banks, params_per_net
 
     return {
+        "arch": arch_label(),
+        "params_per_net": params_per_net(),
         "banks": banks(),
         "crew": crew_banks(),
-        "note": "Tiny 10x12x1 nets per MCP layer and per crew agent. Not a language model.",
+        "note": (
+            f"Tiny {arch_label()} routing nets ({params_per_net()} weights each). "
+            "They pick skills/tools/crew — they are not the language model."
+        ),
     }
 
 
@@ -183,10 +188,13 @@ def mcp_skills() -> dict:
 
 @app.post("/chat")
 async def chat(request: Request, req: ChatRequest) -> StreamingResponse:
-    max_steps = req.max_steps or int(os.getenv("MAX_STEPS", "5"))
-    thinking = (req.thinking_level or "low").lower()
+    max_steps = req.max_steps or int(os.getenv("MAX_STEPS", "8"))
+    thinking = (req.thinking_level or "medium").lower()
     if thinking == "low":
         max_steps = min(max_steps, 5)
+    elif thinking == "medium":
+        max_steps = max(max_steps, 8)
+        max_steps = min(max_steps, 12)
 
     # Prefer an explicit path in the user message over a stale UI workspace field.
     target_ws = path_from_message(req.message or "", create=True)
