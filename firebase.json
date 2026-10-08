@@ -1,0 +1,15 @@
+{
+  "hosting": {
+    "site": "poorman",
+    "public": "dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "sample_data/**",
+      "package.json",
+      "package-lock.json",
+      "firebase.js"
+    ]
+  }
+}
