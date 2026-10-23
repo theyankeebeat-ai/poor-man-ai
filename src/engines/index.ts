@@ -1,6 +1,5 @@
 export { default as BrainEngine } from './BrainEngine';
 export { default as ServerEngine } from './ServerEngine';
-export { default as MCPEngine } from './MCPEngine';
 export { default as SkillEngine } from './SkillEngine';
 export { default as ToolsEngine } from './ToolsEngine';
 export { default as DatabaseEngine } from './DatabaseEngine';

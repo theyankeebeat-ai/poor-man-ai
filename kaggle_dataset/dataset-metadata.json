@@ -1,0 +1,65 @@
+{
+  "title": "Poor Man AI: Autonomous Agent Telemetry & Reasoning Traces",
+  "id": "poormanai/autonomous-agent-telemetry",
+  "licenses": [
+    {
+      "name": "CC-BY-4.0"
+    }
+  ],
+  "description": "Comprehensive autonomous agent execution telemetry, persistent memory knowledge facts, self-learning distilled rules, coding audit operations, neural routing bank topologies, and safety guardrails benchmarks from Poor Man AI.",
+  "keywords": [
+    "artificial-intelligence",
+    "autonomous-agents",
+    "telemetry",
+    "natural-language-processing",
+    "benchmarks",
+    "machine-learning",
+    "guardrails"
+  ],
+  "resources": [
+    {
+      "path": "data/code_audit_telemetry.csv",
+      "description": "Autonomous workspace operations (patches, CLI runs, file mutations)"
+    },
+    {
+      "path": "data/memory_knowledge_facts.csv",
+      "description": "Persistent memory facts extracted from research with source citations"
+    },
+    {
+      "path": "data/self_learning_rules.csv",
+      "description": "Distilled SOP rules learned dynamically across query sessions"
+    },
+    {
+      "path": "data/cache_telemetry.csv",
+      "description": "Query caching hashes, payload footprints, and TTL expiration states"
+    },
+    {
+      "path": "data/neuron_routing_topology.csv",
+      "description": "14 specialized neural routing banks, dimensions, and activation thresholds"
+    },
+    {
+      "path": "data/safety_guardrails_benchmark.csv",
+      "description": "Adversarial jailbreak (DAN), PII scrubbing, and benign baseline queries"
+    },
+    {
+      "path": "data/hf_bert_tiny_model.csv",
+      "description": "prajjwal1/bert-tiny config, weight file size, and parameter count from hf/"
+    },
+    {
+      "path": "data/hf_bert_tiny_parameters.csv",
+      "description": "Parameter groups for the 4.4M BERT-tiny encoder"
+    },
+    {
+      "path": "data/hf_tokenizer_vocab.csv",
+      "description": "BERT WordPiece vocab.txt shipped with prajjwal1/bert-tiny"
+    },
+    {
+      "path": "data/hf_wikitext_splits.csv",
+      "description": "WikiText-2 raw v1 split sizes from the local hf/ parquet files"
+    },
+    {
+      "path": "data/hf_wikitext_sample.csv",
+      "description": "Short non-empty WikiText-2 excerpts for notebook inspection"
+    }
+  ]
+}

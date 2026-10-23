@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 import random
 import re
+import threading
 from typing import Sequence
 
 INPUT = 14
@@ -422,11 +423,23 @@ def _crew_pairs(name: str) -> list[tuple[str, str, float]]:
     return rows
 
 
-_BANKS: dict[str, TinyNet] = {
-    name: _fit(11 + i * 17, pairs) for i, (name, pairs) in enumerate(_CORPORA.items())
+_BANK_SPECS = {
+    name: (11 + i * 17, pairs) for i, (name, pairs) in enumerate(_CORPORA.items())
 }
 for i, cname in enumerate(CREW_ROLES):
-    _BANKS[f"crew:{cname}"] = _fit(401 + i * 13, _crew_pairs(cname))
+    _BANK_SPECS[f"crew:{cname}"] = (401 + i * 13, _crew_pairs(cname))
+
+_BANKS: dict[str, TinyNet] = {}
+_BANK_LOCK = threading.Lock()
+
+
+def _get_bank(name: str) -> TinyNet:
+    name = name if name in _BANK_SPECS else "reason"
+    with _BANK_LOCK:
+        if name not in _BANKS:
+            seed, pairs = _BANK_SPECS[name]
+            _BANKS[name] = _fit(seed, pairs)
+        return _BANKS[name]
 
 
 def neuron_score(
@@ -436,7 +449,7 @@ def neuron_score(
     entities: Sequence[str] | None = None,
     bank: str = "reason",
 ) -> float:
-    net = _BANKS.get(bank) or _BANKS["reason"]
+    net = _get_bank(bank)
     return net.score(features(question, sent, terms, entities))
 
 
@@ -451,7 +464,7 @@ def rank(bank: str, query: str, labels: Sequence[str]) -> list[tuple[str, float]
 
 
 def banks() -> list[str]:
-    return list(_BANKS.keys())
+    return list(_BANK_SPECS.keys())
 
 
 def agents_for_skills(skills: Sequence[str] | None) -> set[str]:
@@ -478,4 +491,4 @@ def crew_fire(
 
 
 def crew_banks() -> list[str]:
-    return [k for k in _BANKS if k.startswith("crew:")]
+    return [k for k in _BANK_SPECS if k.startswith("crew:")]

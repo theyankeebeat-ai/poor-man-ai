@@ -1,4 +1,4 @@
-﻿# Poor Man AI: Unified Autonomous Orchestrator & Research Engine
+# Poor Man AI: Unified Autonomous Orchestrator & Research Engine
 
 **Poor Man AI** unites the autonomous multi-agent reasoning, workspace coding tools, and FastAPI/MCP backend from **Grok Cli Ai Build** with the modular, multi-engine UI dashboard and IndexedDB indexing system from **TSX Ai**.
 
@@ -49,3 +49,52 @@ Or start them individually:
 ```powershell
 yarn build
 ```
+
+### 4. Prepare for Kaggle.com (Dataset & Datasheet)
+Export and sanitize all autonomous agent telemetry, persistent memory facts, neural routing topologies, and code audit traces into Kaggle-ready CSV/JSONL formats with standardized Gebru et al. Datasheets:
+```powershell
+yarn prepare:kaggle
+```
+Or directly with Python:
+```powershell
+python scripts/prepare_kaggle_dataset.py
+python scripts/generate_notebook.py
+```
+This generates the packaged `kaggle_dataset/` directory with:
+- `dataset-metadata.json` (official Kaggle CLI metadata)
+- `README.md` / `KAGGLE_DATASHEET.md` (publication-standard Datasheet for Datasets)
+- `data/` (sanitized tabular CSVs & JSONL streams)
+- `poor_man_ai_eda.ipynb` (1-click Kaggle starter analysis & ML baseline notebook)
+
+## Model runtime and cloud storage
+
+Install `server/requirements.txt`, then use `POST /api/webai/hf` with
+`{"query":"Roman history","top_k":3}`. The runtime loads the local
+`prajjwal1/bert-tiny` checkpoint and its matching Hugging Face BERT tokenizer.
+It shortlists WikiText **train** passages by token overlap, then ranks up to
+16 candidates using mean-pooled BERT embeddings and cosine similarity.
+Inference uses batches of four with a 128-token limit to bound CPU and memory use.
+Validation and test splits are reserved for evaluation. This is retrieval;
+it does not fine-tune the model or generate chat prose. The agent can call
+`hf_search` to access the same model. `/health` reports whether weights have
+actually loaded. The first model request loads the snapshot lazily.
+
+`python -m server.backends` synchronizes `hf/` to the private Supabase and
+Appwrite buckets and publishes a SHA-256 manifest. `HF_STORAGE_PROVIDER=auto`
+restores and verifies that snapshot from Supabase, falling back to Appwrite.
+Use `local` for files already on disk, or name one provider explicitly.
+Set `HF_SNAPSHOT_DIR` to a writable cache directory on Render. Credentials
+belong only in server environment variables; never put secret keys in `VITE_*`.
+
+`render.yaml` describes a standalone backend deployment. The existing
+`simple-ai` production repository nests this backend under `Poor man ai/`;
+run `python scripts/prepare_render_update.py <deployment-checkout>` to prepare
+the targeted repair there while preserving its bucket routes and frontend.
+Its build command must install the nested backend requirements and
+`buckets/requirements.txt`; its start command must use
+`--app-dir "Poor man ai"` and bind `0.0.0.0:$PORT`.
+
+Architecture presets remain estimates and cannot resize loaded weights.
+`POST /model/train` returns 501 until a real training worker is implemented.
+Run runtime checks with `python -m pytest server/test_hf_runtime.py`.
+

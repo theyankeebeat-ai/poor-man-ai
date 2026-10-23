@@ -187,12 +187,25 @@ def gap_queries(message: str, plan: Plan, observations: list[tuple[str, str]]) -
     if miss:
         extras.append(f"{message} {' '.join(miss[:4])}".strip())
     blob = "\n".join(t for _, t in observations).lower()
+    sports: list[str] = []
     if re.search(r"\b(nfl|nba|wnba|mlb|nhl|weekend|kickoff|teams?)\b", (message or "").lower()):
         if not re.search(r"\b(vs\.?|versus|\bat\b)\b", blob):
-            extras = [
+            sports = [
                 "NFL schedule this weekend site:nfl.com",
                 "NFL week schedule site:espn.com/nfl/schedule",
             ]
+    # A second search after a hit is what makes the answer sit there.
+    # Sports schedules still get one targeted follow-up when the first page has no matchup.
+    has_search = any(
+        n == "web_search"
+        and t.strip() not in ("", "[]")
+        and not t.lower().startswith("timeout")
+        and not t.lower().startswith("error")
+        for n, t in observations
+    )
+    if has_search:
+        return sports[:2]
+    extras.extend(sports)
     extras.append(f"{base} official documentation")
     extras.append(f"{message} {loc} current".strip())
     seen: set[str] = {q.lower() for q in plan.search_queries}

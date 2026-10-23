@@ -1,0 +1,4 @@
+dataset_id,config,split,source_file,file_bytes,rows,nonempty_rows,characters,under_25mb
+Salesforce/wikitext,wikitext-2-raw-v1,train,hf/wikitext-2-raw-v1/wikitext-2-raw-v1/train-00000-of-00001.parquet,6357543,36718,23767,10892990,1
+Salesforce/wikitext,wikitext-2-raw-v1,validation,hf/wikitext-2-raw-v1/wikitext-2-raw-v1/validation-00000-of-00001.parquet,657209,3760,2461,1142150,1
+Salesforce/wikitext,wikitext-2-raw-v1,test,hf/wikitext-2-raw-v1/wikitext-2-raw-v1/test-00000-of-00001.parquet,732610,4358,2891,1285622,1

@@ -6,22 +6,22 @@ import os
 import time
 from pathlib import Path
 
-from dotenv import load_dotenv
-import edge_tts
-import uuid
 import shutil
+import threading
+import uuid
+
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from server.agent import run_agent
-from server.mcp.knowledge import load_packs
-from server.mcp.skills import load_skills
 from server.cache import stats as cache_stats
-from server.memory import read_all, scrub_junk
 from server.schemas import ChatRequest, TTSRequest, ReadUrlRequest
 from server.workspace import path_from_message, set_workspace
+
+# Render's HTTP health check gives up after 5 seconds. edge-tts and the agent
+# stack stay out of this import so the process can bind inside that window.
 
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
@@ -41,31 +41,61 @@ _tts_voices_cache: dict | None = None
 _tts_voices_cached_at = 0.0
 _tts_voices_lock = asyncio.Lock()
 
+# Rewriting memory.jsonl must not delay the port bind. /health reads this dict as-is.
+_MEMORY_SCRUB: dict = {"pending": True}
+
+
+def _scrub_memory_background() -> None:
+    global _MEMORY_SCRUB
+    try:
+        from server.memory import scrub_junk
+
+        _MEMORY_SCRUB = scrub_junk()
+    except Exception as exc:
+        _MEMORY_SCRUB = {"error": type(exc).__name__}
+
+
+threading.Thread(target=_scrub_memory_background, name="memory-scrub", daemon=True).start()
+
 images_dir = Path(__file__).resolve().parent / "data" / "images"
 images_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/static/images", StaticFiles(directory=images_dir), name="images")
+
+hf_dir = Path(os.getenv("HF_SNAPSHOT_DIR", str(ROOT / "hf")))
+if os.getenv("HF_STORAGE_PROVIDER", "local") != "local":
+    hf_dir.mkdir(parents=True, exist_ok=True)
+if hf_dir.is_dir():
+    app.mount("/static/hf", StaticFiles(directory=hf_dir), name="hf")
 
 uploads_dir = Path(__file__).resolve().parent / "data" / "uploads"
 uploads_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/static/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
-# Drop Jina 401 / failed-search dumps once at boot so the Context Memory panel stays useful.
-_MEMORY_SCRUB = scrub_junk()
-
-
 @app.get("/health")
 @app.get("/api/health")
 def health() -> dict:
+    from server.hf_tiny import runtime_status
     return {
         "status": "ok",
         "cache": cache_stats(),
         "memory_scrub": _MEMORY_SCRUB,
+        "hf": runtime_status(),
         "note": "Poor Man AI running with shared cache and unified MCP/code tools.",
     }
 
 
+@app.get("/api/backends")
+def cloud_backends() -> dict:
+    """Local ports plus Render, Appwrite, and Supabase."""
+    from server.backends import status
+
+    return status()
+
+
 @app.get("/memory")
 def get_memory() -> dict:
+    from server.memory import read_all
+
     return {"facts": read_all()}
 
 
@@ -121,6 +151,8 @@ def debug_route(req: ChatRequest) -> dict:
 
 @app.get("/mcp/knowledge")
 def mcp_knowledge() -> dict:
+    from server.mcp.knowledge import load_packs
+
     return {
         "packs": [
             {"name": p.name, "topics": p.topics, "excerpt": p.body[:400]}
@@ -159,14 +191,7 @@ def get_model_architectures() -> dict:
 
 @app.post("/model/train")
 def train_model_stub(payload: dict) -> dict:
-    return {
-        "status": "training_scheduled",
-        "method": payload.get("method", "qlora"),
-        "target": payload.get("target_model", "PoorMan-Mini-1B"),
-        "epochs": payload.get("epochs", 3),
-        "dataset_samples": 42,
-        "message": "Fine-tuning job registered in Poor Man AI blackboard."
-    }
+    raise HTTPException(status_code=501, detail="No training worker is configured. Model presets do not train or resize the loaded BERT checkpoint.")
 
 
 @app.get("/crew/router")
@@ -219,6 +244,8 @@ def test_crew_broadcast(payload: dict) -> dict:
 
 @app.get("/mcp/skills")
 def mcp_skills() -> dict:
+    from server.mcp.skills import load_skills
+
     return {
         "skills": [
             {
@@ -254,6 +281,10 @@ async def chat(request: Request, req: ChatRequest) -> StreamingResponse:
         max_steps = min(max_steps, 20)
 
     async def gen():
+        # First byte before routing, so a warm worker is not silent while the agent starts.
+        yield json.dumps({"type": "status", "text": "Thinking…"}) + "\n"
+        from server.agent import run_agent
+
         if target_ws:
             try:
                 set_workspace(target_ws)
@@ -307,6 +338,8 @@ async def tts_voices() -> dict:
         if _tts_voices_cache is not None and (now - _tts_voices_cached_at) < _TTS_VOICES_TTL_SEC:
             return {**_tts_voices_cache, "cached": True}
         try:
+            import edge_tts
+
             voices = await edge_tts.list_voices()
             target_prefixes = (
                 "en", "fr", "ru", "es", "de", "it", "pt", "zh", "ja", "ko",
@@ -338,6 +371,8 @@ async def text_to_speech(req: TTSRequest):
     if not text:
         raise HTTPException(status_code=400, detail="Text is empty")
     try:
+        import edge_tts
+
         communicate = edge_tts.Communicate(
             text=text,
             voice=req.voice or "en-US-AriaNeural",
@@ -393,19 +428,17 @@ async def upload_file(file: UploadFile = File(...)):
 # Real AI Gateway, RAG Vector Search & Guardrail Endpoints
 # ===========================================================================
 
-from server.real_ai import (
-    get_available_providers,
-    vector_store,
-    evaluate_prompt_safety,
-    scrub_pii,
-    compute_dense_embedding
-)
+def _real_ai():
+    from server import real_ai
+
+    return real_ai
+
 
 @app.get("/api/real-ai/providers")
 def get_ai_providers():
     """Lists standard and real AI providers (Gemini, Groq, Ollama, OpenAI, xAI, OpenRouter)."""
     return {
-        "providers": get_available_providers(),
+        "providers": _real_ai().get_available_providers(),
         "timestamp": time.time()
     }
 
@@ -421,7 +454,7 @@ def list_rag_documents():
             "embedding_dims": len(d.embedding),
             "created_at": d.created_at
         }
-        for d in vector_store.documents.values()
+        for d in _real_ai().vector_store.documents.values()
     ]
     return {"total": len(docs), "documents": docs}
 
@@ -434,7 +467,7 @@ async def index_rag_document(req: Request):
     if not content:
         raise HTTPException(status_code=400, detail="Content cannot be empty.")
     metadata = payload.get("metadata", {})
-    doc = vector_store.add_document(content=content, metadata=metadata)
+    doc = _real_ai().vector_store.add_document(content=content, metadata=metadata)
     return {
         "status": "indexed",
         "document_id": doc.id,
@@ -452,7 +485,7 @@ async def search_rag(req: Request):
     min_score = float(payload.get("min_score", 0.1))
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
-    matches = vector_store.search(query=query, top_k=top_k, min_score=min_score)
+    matches = _real_ai().vector_store.search(query=query, top_k=top_k, min_score=min_score)
     return {
         "query": query,
         "matches_count": len(matches),
@@ -460,13 +493,55 @@ async def search_rag(req: Request):
     }
 
 
+@app.get("/api/brain/hf")
+def brain_hf_catalog():
+    """List every file in the local hf/ snapshot."""
+    from server.hf_tiny import catalog_hf
+
+    return catalog_hf()
+
+
+@app.get("/api/brain/hf/file")
+def brain_hf_file(path: str):
+    """Read one file under hf/. Refuses paths that leave that folder."""
+    from server.hf_tiny import read_hf_file
+
+    try:
+        return read_hf_file(path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/api/webai/hf")
+async def run_webai_hf(req: Request):
+    """Load BERT weights and rerank WikiText training passages on a worker thread."""
+    from server.hf_tiny import run_query
+
+    payload = await req.json()
+    query = str(payload.get("query", "")).strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="Query cannot be empty.")
+    try:
+        return await asyncio.to_thread(run_query, query, int(payload.get("top_k", 3)))
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (ImportError, RuntimeError) as exc:
+        import logging
+        logging.getLogger(__name__).exception("HF model request failed")
+        raise HTTPException(status_code=503, detail="Model unavailable; check runtime dependencies, checkpoint, and storage configuration.") from exc
+
+
 @app.post("/api/real-ai/guardrails/evaluate")
 async def evaluate_safety(req: Request):
     """Evaluates prompt against jailbreak injections and scans for PII leaks."""
     payload = await req.json()
     text = payload.get("text", "")
-    evaluation = evaluate_prompt_safety(text)
-    scrubbed = scrub_pii(text)
+    evaluation = _real_ai().evaluate_prompt_safety(text)
+    scrubbed = _real_ai().scrub_pii(text)
     return {
         **evaluation,
         "scrubbed_text": scrubbed

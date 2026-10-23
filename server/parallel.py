@@ -11,7 +11,7 @@ TIMEOUTS = {
     "followup_search": 15.0,
     "gap_search": 15.0,
     # docs pages via r.jina.ai often need >6s; short cap caused false timeouts.
-    "read_url": 25.0,
+    "read_url": 9.0,
     "weather_compare": 8.0,
     "youtube_summarize": 20.0,
     "local_video_summarize": 120.0,

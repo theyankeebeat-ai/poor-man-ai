@@ -35,6 +35,7 @@ export const ServerEngine: React.FC = () => {
   const [logs, setLogs] = useState<string[]>([
     `[${new Date().toLocaleTimeString()}] Probing local backend at ${API}...`
   ]);
+  const [cloud, setCloud] = useState<any>(null);
 
   const checkHealth = async () => {
     try {
@@ -61,8 +62,18 @@ export const ServerEngine: React.FC = () => {
     }
   };
 
+  const loadCloud = async () => {
+    try {
+      const res = await fetch(`${API}/api/backends`);
+      if (res.ok) setCloud(await res.json());
+    } catch {
+      setCloud(null);
+    }
+  };
+
   useEffect(() => {
     checkHealth();
+    loadCloud();
     const interval = setInterval(checkHealth, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -135,6 +146,23 @@ export const ServerEngine: React.FC = () => {
           <div className="text-xl font-bold font-mono">Sandboxed Tools</div>
           <span className="text-[11px] text-emerald-400">Safe Root Containment</span>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {[
+          { name: 'Render', detail: cloud?.render?.url || 'https://poor-man-ai.onrender.com', ok: Boolean(cloud?.render?.ok), note: 'API host' },
+          { name: 'Appwrite', detail: cloud?.appwrite?.bucket ? `bucket ${cloud.appwrite.bucket}` : 'bucket hf', ok: Boolean(cloud?.appwrite?.ok), note: cloud?.appwrite?.files != null ? `${cloud.appwrite.files} files` : 'storage' },
+          { name: 'Supabase', detail: cloud?.supabase?.bucket ? `bucket ${cloud.supabase.bucket}` : 'bucket hf', ok: Boolean(cloud?.supabase?.ok), note: cloud?.supabase?.files != null ? `${cloud.supabase.files} snapshot files` : 'storage' },
+        ].map((item) => (
+          <div key={item.name} className={`p-4 rounded-2xl border ${colors.border} ${colors.bgCard} space-y-1`}>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold">{item.name}</span>
+              <span className={`w-2.5 h-2.5 rounded-full ${item.ok ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+            </div>
+            <div className="text-xs font-mono text-cyan-400 break-all">{item.detail}</div>
+            <span className={`text-[11px] ${colors.textMuted}`}>{item.note}</span>
+          </div>
+        ))}
       </div>
 
       {/* Services List Table */}

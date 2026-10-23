@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+.firebase/
+firebase-debug*.log
+functions/node_modules/
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+.pytest-hf*/
+.pytest_cache/

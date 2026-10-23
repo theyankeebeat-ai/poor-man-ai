@@ -1,0 +1,7 @@
+group,copies,parameters_each,parameters_total,note
+word_embeddings,1,3906816,3906816,vocab 30522 x hidden 128
+position_embeddings,1,65536,65536,max positions 512
+token_type_embeddings,1,256,256,type vocab 2
+embeddings_layer_norm,1,256,256,weight + bias
+encoder_layer,2,198272,396544,"2 layers, 2 heads, intermediate 512"
+pooler,1,16512,16512,dense weight + bias

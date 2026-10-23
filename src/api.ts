@@ -19,7 +19,17 @@ function loadIntelligence(): ReturnType<typeof intelligencePayload> {
   return intelligencePayload(DEFAULT_HYPERPARAMS);
 }
 
-export const API = "http://127.0.0.1:8000";
+const LOCAL_API = "http://127.0.0.1:8000";
+const HOSTED_API = import.meta.env.VITE_API_URL || "https://wqrriztbsifgytjzippi.supabase.co/functions/v1/api";
+
+function resolveApi(): string {
+  if (typeof window === "undefined") return LOCAL_API;
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1") return LOCAL_API;
+  return HOSTED_API;
+}
+
+export const API = resolveApi();
 
 export async function fetchMemory(): Promise<MemoryFact[]> {
   const r = await fetch(`${API}/memory`);
@@ -38,7 +48,11 @@ export async function streamChat(
 ): Promise<void> {
   const r = await fetch(`${API}/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/x-ndjson",
+    },
+    cache: "no-store",
     body: JSON.stringify({
       message,
       max_steps: maxSteps,
@@ -55,6 +69,11 @@ export async function streamChat(
   }
   const reader = r.body.getReader();
   const dec = new TextDecoder();
+  let hasAnswer = false;
+  const emit = (event: AgentEvent) => {
+    if ((event.type === "token" || event.type === "done" || event.type === "error") && event.text?.trim()) hasAnswer = true;
+    onEvent(event);
+  };
   let buf = "";
   const cancelReader = () => {
     try {
@@ -85,7 +104,7 @@ export async function streamChat(
       if (!trimmed) continue;
       if (signal.aborted) return;
       try {
-        onEvent(JSON.parse(trimmed) as AgentEvent);
+          emit(JSON.parse(trimmed) as AgentEvent);
       } catch {
         /* ignore partial JSON */
       }
@@ -96,11 +115,12 @@ export async function streamChat(
   }
   if (buf.trim() && !signal.aborted) {
     try {
-      onEvent(JSON.parse(buf.trim()) as AgentEvent);
+      emit(JSON.parse(buf.trim()) as AgentEvent);
     } catch {
       /* ignore */
     }
   }
+  if (!signal.aborted && !hasAnswer) throw new Error("The backend closed the stream without an answer. Please retry.");
 }
 
 export function staticUrl(path: string): string {

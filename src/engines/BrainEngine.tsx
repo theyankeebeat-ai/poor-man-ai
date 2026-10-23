@@ -12,6 +12,33 @@ import { useTheme } from '../ThemeContext';
 import { fetchMemory, API } from '../api';
 import type { MemoryFact } from '../types';
 
+interface HfFile {
+  path: string;
+  bytes: number;
+  kind: string;
+  url: string;
+}
+
+interface HfCatalog {
+  root: string;
+  exists: boolean;
+  absolute?: string;
+  files: HfFile[];
+  file_count?: number;
+  total_bytes?: number;
+}
+
+interface HfPreview {
+  path: string;
+  bytes: number;
+  kind: string;
+  url: string;
+  text?: string;
+  rows?: number;
+  lines?: number;
+  truncated?: boolean;
+}
+
 export const BrainEngine: React.FC = () => {
   const { colors } = useTheme();
   const [temperature, setTemperature] = useState<number>(0.7);
@@ -20,6 +47,12 @@ export const BrainEngine: React.FC = () => {
   const [neurons, setNeurons] = useState<any>(null);
   const [facts, setFacts] = useState<MemoryFact[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [hfCatalog, setHfCatalog] = useState<HfCatalog | null>(null);
+  const [hfPreview, setHfPreview] = useState<HfPreview | null>(null);
+  const [hfQuery, setHfQuery] = useState('');
+  const [hfAnswer, setHfAnswer] = useState<string | null>(null);
+  const [hfBusy, setHfBusy] = useState(false);
+  const [cloudNote, setCloudNote] = useState<string | null>(null);
 
   const loadBrainData = async () => {
     setLoading(true);
@@ -32,10 +65,60 @@ export const BrainEngine: React.FC = () => {
         const nData = await nRes.json();
         setNeurons(nData);
       }
+
+      const hfRes = await fetch(`${API}/api/brain/hf`);
+      if (hfRes.ok) {
+        setHfCatalog(await hfRes.json());
+      }
+
+      const cloudRes = await fetch(`${API}/api/backends`);
+      if (cloudRes.ok) {
+        const cloud = await cloudRes.json();
+        const appwriteFiles = cloud.appwrite?.files;
+        const supabaseFiles = cloud.supabase?.files;
+        setCloudNote(
+          `Appwrite hf: ${cloud.appwrite?.ok ? `${appwriteFiles ?? 0} files` : 'offline'} · Supabase hf: ${cloud.supabase?.ok ? `${supabaseFiles ?? 0} files` : 'offline'} · API: ${cloud.render?.url || 'Render'}`
+        );
+      }
     } catch (err) {
       console.warn('Backend not yet reachable:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openHfFile = async (path: string) => {
+    setHfBusy(true);
+    try {
+      const res = await fetch(`${API}/api/brain/hf/file?path=${encodeURIComponent(path)}`);
+      if (res.ok) setHfPreview(await res.json());
+    } finally {
+      setHfBusy(false);
+    }
+  };
+
+  const runHfQuery = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const query = hfQuery.trim();
+    if (!query) return;
+    setHfBusy(true);
+    setHfAnswer(null);
+    try {
+      const res = await fetch(`${API}/api/webai/hf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+      });
+      if (!res.ok) {
+        setHfAnswer(`Snapshot query failed (${res.status}).`);
+        return;
+      }
+      const data = await res.json();
+      setHfAnswer(data.answer as string);
+    } catch (err) {
+      setHfAnswer('The API on port 8000 did not answer.');
+    } finally {
+      setHfBusy(false);
     }
   };
 
@@ -189,6 +272,90 @@ export const BrainEngine: React.FC = () => {
                 Coordinates specialists (facts, howto, gap, debate, skeptic, verifier) on one shared blackboard.
               </p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={`p-5 rounded-2xl border ${colors.border} ${colors.bgCard} space-y-4`}>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Database className="w-4 h-4 text-fuchsia-400" />
+            <h3 className="text-sm font-semibold uppercase tracking-wider">
+              Hugging Face snapshot
+              {hfCatalog?.file_count != null ? ` (${hfCatalog.file_count} files)` : ''}
+            </h3>
+          </div>
+          <span className={`text-xs ${colors.textMuted} font-mono`}>
+            {hfCatalog?.absolute || 'hf/'}
+            {hfCatalog?.total_bytes != null ? ` · ${(hfCatalog.total_bytes / 1_000_000).toFixed(1)} MB` : ''}
+          </span>
+        </div>
+        {cloudNote && (
+          <p className={`text-[11px] font-mono ${colors.textMuted}`}>{cloudNote}</p>
+        )}
+
+        <form onSubmit={runHfQuery} className="flex gap-2">
+          <input
+            value={hfQuery}
+            onChange={(e) => setHfQuery(e.target.value)}
+            placeholder="Query BERT-tiny tokenizer against WikiText-2"
+            className={`flex-1 px-3 py-2 rounded-xl border text-xs ${colors.border} ${colors.badgeBg} ${colors.textPrimary}`}
+          />
+          <button
+            type="submit"
+            disabled={hfBusy}
+            className="px-3 py-2 rounded-xl text-xs font-medium bg-purple-600 text-white disabled:opacity-50"
+          >
+            Run
+          </button>
+        </form>
+        {hfAnswer && (
+          <pre className={`text-[11px] whitespace-pre-wrap max-h-48 overflow-y-auto p-3 rounded-xl border ${colors.border} ${colors.badgeBg}`}>
+            {hfAnswer}
+          </pre>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <div className="space-y-1 max-h-72 overflow-y-auto">
+            {hfCatalog?.files?.length ? (
+              hfCatalog.files.map((file) => (
+                <button
+                  key={file.path}
+                  type="button"
+                  onClick={() => openHfFile(file.path)}
+                  className={`w-full text-left px-3 py-2 rounded-xl border text-[11px] font-mono ${colors.border} ${colors.badgeBg} hover:border-purple-500/40`}
+                >
+                  <span className="text-purple-300">{file.kind}</span>
+                  <span className="mx-2">{file.path}</span>
+                  <span className={colors.textMuted}>{(file.bytes / 1000).toFixed(0)} KB</span>
+                </button>
+              ))
+            ) : (
+              <p className={`text-xs italic ${colors.textMuted}`}>
+                hf/ is not visible. Start the API on port 8000 and reload.
+              </p>
+            )}
+          </div>
+          <div className={`p-3 rounded-xl border ${colors.border} ${colors.badgeBg} max-h-72 overflow-y-auto`}>
+            {hfPreview ? (
+              <div className="space-y-2 text-[11px]">
+                <div className="flex items-center justify-between gap-2 font-mono">
+                  <span>{hfPreview.path}</span>
+                  <a className="text-cyan-400 hover:underline" href={`${API}${hfPreview.url}`} target="_blank" rel="noreferrer">
+                    open file
+                  </a>
+                </div>
+                <p className={colors.textMuted}>
+                  {hfPreview.kind}
+                  {hfPreview.rows != null ? ` · ${hfPreview.rows} rows` : ''}
+                  {hfPreview.lines != null ? ` · ${hfPreview.lines} lines` : ''}
+                  {hfPreview.truncated ? ' · preview truncated' : ''}
+                </p>
+                <pre className="whitespace-pre-wrap">{hfPreview.text}</pre>
+              </div>
+            ) : (
+              <p className={`text-xs italic ${colors.textMuted}`}>Select a file to read it from hf/.</p>
+            )}
           </div>
         </div>
       </div>

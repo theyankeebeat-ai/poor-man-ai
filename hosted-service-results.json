@@ -1,0 +1,42 @@
+[
+  {
+    "path": "/health",
+    "http": 200,
+    "keys": [
+      "status",
+      "cache",
+      "memory_scrub",
+      "hf",
+      "note"
+    ],
+    "ok": true
+  },
+  {
+    "path": "/mcp/skills",
+    "http": 200,
+    "keys": [
+      "skills"
+    ],
+    "ok": true
+  },
+  {
+    "path": "/mcp/neurons",
+    "ok": false,
+    "error": "ReadTimeout"
+  },
+  {
+    "path": "/tools",
+    "http": 200,
+    "keys": [
+      "tools"
+    ],
+    "ok": true
+  },
+  {
+    "path": "/tts",
+    "http": 200,
+    "contentType": "audio/mpeg",
+    "bytes": 17136,
+    "ok": true
+  }
+]

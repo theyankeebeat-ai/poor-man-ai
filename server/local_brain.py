@@ -33,6 +33,18 @@ CHAT_RE = re.compile(
     re.I,
 )
 
+# Short social turns ("hi again", "hey there", "thanks so much") stay on the
+# chat handler. Anything with a real question still falls through to research.
+SOCIAL_RE = re.compile(
+    r"^\s*(?:hi|hello|hey|yo|thanks|thank you|thx|ok|okay|cool|bye|goodbye|"
+    r"yes|yeah|yep|no|nope|sure|great|nice|lol|haha|sup|"
+    r"hola|salut|bonjour|merci)"
+    r"(?:[\s,]+(?:again|there|you|ya|all|friend|buddy|pal|mate|please|"
+    r"so much|very much|a lot)){0,3}"
+    r"\s*[.!?]*\s*$",
+    re.I,
+)
+
 META_RE = re.compile(
     r"\b(what (?:were|are) we (?:talking|discussing)|remind me|"
     r"what did i (?:ask|say)|do you remember|without (?:an? )?api|"
@@ -147,6 +159,29 @@ def try_math(message: str) -> str | None:
     return f"{expr} = **{val:g}**."
 
 
+def try_math_followup(message: str, history: list[Turn]) -> str | None:
+    """Resolve arithmetic references only against the immediately preceding answer."""
+    if not history or history[-1].role != "assistant":
+        return None
+    previous = re.fullmatch(r"(.+?) = \*\*([+-]?[0-9]+(?:\.[0-9]+)?(?:e[+-]?[0-9]+)?)\*\*\.", history[-1].text.strip())
+    if not previous or try_math(previous[1]) != history[-1].text.strip():
+        return None
+    reference = r"(?:that(?:\s+(?:result|answer|number))?|the\s+(?:result|answer|number)|it)"
+    command = re.fullmatch(
+        rf"(?:now\s+)?(divide|multiply)\s+{reference}\s+by\s+([+-]?[0-9]+(?:\.[0-9]+)?)[.!?]?",
+        message.strip(), re.I,
+    )
+    if command:
+        symbol = "/" if command[1].lower() == "divide" else "*"
+        return try_math(f"{previous[2]}{symbol}{command[2]}")
+    if re.fullmatch(r"(?:explain\s+)?why\s+(?:is\s+)?(?:the\s+)?(?:answer|result|that)\s+(?:is\s+)?correct[.!?]?", message.strip(), re.I):
+        division = re.fullmatch(r"([+-]?[0-9.]+)/([+-]?[0-9.]+)", previous[1])
+        if division:
+            return f"{previous[1]} = **{previous[2]}** because {previous[2]} multiplied by {division[2]} equals {division[1]}."
+        return f"Evaluating the previous expression, {previous[1]}, gives **{previous[2]}**."
+    return None
+
+
 # classify_intent kinds that lock a domain handler (not "factual" / "followup").
 _KIND_MODE = {
     "weather": "weather",
@@ -198,7 +233,7 @@ def mode_of(
     mapped = _KIND_MODE.get(str(intent_kind or ""))
     if mapped:
         return mapped
-    if CHAT_RE.match(raw):
+    if CHAT_RE.match(raw) or SOCIAL_RE.match(raw):
         return "chat"
     # Meta recap only when the turn is actually about the conversation, not a domain ask.
     if META_RE.search(raw) and not domain_on_goal and len(raw.split()) <= 16:
@@ -287,20 +322,14 @@ def think(message: str, history: list[Turn]) -> dict[str, Any]:
     from server.local_howto import local_howto_answer
 
     local_howto = local_howto_answer(message)
-    cheap = mode in CHEAP or bool(local_howto) or try_math(message) is not None
+    cheap = mode in CHEAP or bool(local_howto) or try_math(message) is not None or try_math_followup(message, history) is not None
     if local_howto:
         mode = "howto"
     # Cheap / canned how-tos never search (avoids Medium dumps + fake "location" noise).
     queries = [] if cheap else _queries(message, history, mode, loc, goal)
-    # Cap URL reads: howto needs one good docs page, not a Medium stack.
-    if cheap:
-        fetch = 0
-    elif mode in {"weather", "media", "howto"}:
-        fetch = 1
-    elif SPORTS_RE.search(f"{message} {goal}"):
-        fetch = 3
-    else:
-        fetch = 2
+    # Do not open result pages on the free worker. A full-page read blocks
+    # the only process long enough that the answer never streams.
+    fetch = 0
     if cheap:
         order = ["understand", "plan", "skip-gather", mode, "compose", "stop"]
     else:
@@ -556,7 +585,7 @@ def _folder_peek(message: str) -> str | None:
 def cheap_answer(message: str, history: list[Turn], thought: dict[str, Any] | None = None) -> str | None:
     """Chat / calc / memory / known how-tos. None means gather + crew."""
     # Word-math even if mode mis-routed to research ("what is 2 plus 2?").
-    math = try_math(message)
+    math = try_math(message) or try_math_followup(message, history)
     if math is not None:
         return math
     peek = _folder_peek(message)

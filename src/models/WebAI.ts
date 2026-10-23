@@ -1,6 +1,7 @@
 import { AISearchResponse, SearchResultItem } from '../mcp/common';
 import { liveWebSearch } from '../services/liveWebSearch';
 import { localDb } from '../db/localIndexDb';
+import { API } from '../api';
 
 export interface MCPEngineResponse {
   mcpId: string;
@@ -8,6 +9,22 @@ export interface MCPEngineResponse {
   response: AISearchResponse;
   status: 'resolved' | 'failed';
   latencyMs: number;
+}
+
+export interface HuggingFaceRun {
+  query: string;
+  model: {
+    model_id: string;
+    parameter_count: number;
+    weights_bytes: number;
+    vocab_size: number;
+    dataset_id: string;
+    dataset_config: string;
+  };
+  tokens: string[];
+  token_count: number;
+  hits: { split: string; score: number; text: string }[];
+  answer: string;
 }
 
 export interface WebAISynthesis {
@@ -21,6 +38,19 @@ export interface WebAISynthesis {
   aggregatedSources: SearchResultItem[];
   confidenceScore: number;
   timestamp: string;
+  huggingFace?: HuggingFaceRun;
+}
+
+const HF_RUN_URL = `${API}/api/webai/hf`;
+
+async function runLocalHuggingFace(query: string): Promise<HuggingFaceRun | null> {
+  const response = await fetch(HF_RUN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query })
+  });
+  if (!response.ok) return null;
+  return (await response.json()) as HuggingFaceRun;
 }
 
 /**
@@ -40,10 +70,19 @@ export class WebAIOrchestrator {
     const trimmed = query.trim();
     if (!trimmed) throw new Error('Query cannot be empty');
 
+    onProgress?.('Running local BERT-tiny tokenizer against WikiText-2...');
+
+    const start = Date.now();
+    let huggingFace: HuggingFaceRun | null = null;
+    try {
+      huggingFace = await runLocalHuggingFace(trimmed);
+    } catch (err) {
+      console.warn('Local Hugging Face snapshot did not run:', err);
+    }
+
     onProgress?.('Dispatching query across 4 MCP Search Servers in parallel...');
 
     // 1. Dispatch MCP communication in parallel
-    const start = Date.now();
     const [ddgRes, googleRes, bingRes, yandexRes] = await Promise.allSettled([
       this.callMCPEngine('duckduckgo-ai-search-mcp', 'DuckDuckGo AI', () =>
         liveWebSearch.search(trimmed, 'duckduckgo')
@@ -100,9 +139,16 @@ export class WebAIOrchestrator {
       resolvedEngines[2]?.response.aiOverviewText ||
       '';
 
-    const consensusAnswer = `### Cross-Engine Consensus Answer for "${trimmed}"\n\n${primaryInsight}\n\n**Multi-Source Corroboration:**\n${secondaryInsight}\n\n*Synthesized from ${resolvedEngines.length} autonomous MCP search nodes (DuckDuckGo, Google AI, Bing Copilot, Yandex Neuro).*`;
+    const localBlock = huggingFace
+      ? `### Local Hugging Face snapshot\n\n${huggingFace.answer}\n\n`
+      : '';
+
+    const consensusAnswer = `${localBlock}### Cross-Engine Consensus Answer for "${trimmed}"\n\n${primaryInsight}\n\n**Multi-Source Corroboration:**\n${secondaryInsight}\n\n*Synthesized from ${resolvedEngines.length} autonomous MCP search nodes (DuckDuckGo, Google AI, Bing Copilot, Yandex Neuro).*`;
 
     const keyInsights = [
+      huggingFace
+        ? `${huggingFace.model.model_id}: ${huggingFace.model.parameter_count.toLocaleString()} parameters, ${huggingFace.token_count} WordPiece tokens, ${huggingFace.hits.length} WikiText-2 hits.`
+        : 'Local BERT-tiny / WikiText-2 snapshot was not reachable on port 8000.',
       `Cross-referenced across ${resolvedEngines.length} distributed search nodes.`,
       `Identified ${aggregatedSources.length} unique authoritative web sources without circular citations.`,
       `Total inter-MCP pipeline roundtrip latency: ${Date.now() - start}ms.`
@@ -115,7 +161,8 @@ export class WebAIOrchestrator {
       mcpContributions: contributions,
       aggregatedSources: aggregatedSources.slice(0, 8),
       confidenceScore: Math.min(0.98, 0.85 + resolvedEngines.length * 0.03),
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      huggingFace: huggingFace ?? undefined
     };
 
     // Auto-save consensus answer into local database

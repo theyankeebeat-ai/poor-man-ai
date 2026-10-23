@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../ThemeContext';
+import { API } from '../api';
 import {
   Sparkles,
   ShieldCheck,
@@ -66,7 +67,7 @@ const RealAIEngine: React.FC = () => {
   const loadProviders = async () => {
     setLoadingProviders(true);
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/real-ai/providers');
+      const res = await fetch(`${API}/api/real-ai/providers`);
       if (res.ok) {
         const data = await res.json();
         setProviders(data.providers || []);
@@ -81,7 +82,7 @@ const RealAIEngine: React.FC = () => {
   // Fetch RAG documents
   const loadRagDocs = async () => {
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/real-ai/rag/documents');
+      const res = await fetch(`${API}/api/real-ai/rag/documents`);
       if (res.ok) {
         const data = await res.json();
         setRagDocs(data.documents || []);
@@ -100,7 +101,7 @@ const RealAIEngine: React.FC = () => {
     if (!newContent.trim()) return;
     setIndexing(true);
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/real-ai/rag/index', {
+      const res = await fetch(`${API}/api/real-ai/rag/index`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: newContent, metadata: { source: 'real_ai_cockpit' } })
@@ -120,7 +121,7 @@ const RealAIEngine: React.FC = () => {
     if (!searchQuery.trim()) return;
     setSearching(true);
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/real-ai/rag/search', {
+      const res = await fetch(`${API}/api/real-ai/rag/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: searchQuery, top_k: 4, min_score: 0.05 })
@@ -139,7 +140,7 @@ const RealAIEngine: React.FC = () => {
   const handleEvaluateSafety = async () => {
     setEvaluating(true);
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/real-ai/guardrails/evaluate', {
+      const res = await fetch(`${API}/api/real-ai/guardrails/evaluate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: testPrompt })

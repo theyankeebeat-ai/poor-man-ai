@@ -1,0 +1,279 @@
+id,timestamp,category,fact_length,fact_text,source_url,has_citation
+1,2026-09-08T16:32:00.954988+00:00,weather,500,"Weather cross-check for **Montevideo, Montevideo Department, Uruguay** (public APIs, no xAI key).
+
+- Open-Meteo: temp 13.4, feels 12.4, humidity 65, wind km/h 9.0, today max 13.6, today min 6.4  
+  https://open-meteo.com/
+- MET Norway: temp 13.3, humidity 66.5  
+  https://api.met.no/
+- wttr.in: Sunny, temp 15, feels 11, humidity 50, wind km/h 13  
+  https://wttr.in/montevideo
+
+Temperature spread across 3 APIs: 13.3–15.0 °C (Δ 1.7 °C).
+
+Sources are Open-Meteo, MET Norway, and wttr.in, plus web sn",https://open-meteo.com/,1
+2,2026-09-08T16:35:49.460927+00:00,weather,500,"Weather cross-check for **Montevideo, Montevideo Department, Uruguay** (public APIs, no xAI key).
+
+- Open-Meteo: temp 13.4, feels 12.4, humidity 65, wind km/h 9.0, today max 13.6, today min 6.4  
+  https://open-meteo.com/
+- MET Norway: temp 13.3, humidity 66.5  
+  https://api.met.no/
+- wttr.in: Sunny, temp 15, feels 11, humidity 50, wind km/h 13  
+  https://wttr.in/montevideo
+
+Temperature spread across 3 APIs: 13.3–15.0 °C (Δ 1.7 °C).
+
+Sources are Open-Meteo, MET Norway, and wttr.in, plus web sn",https://open-meteo.com/,1
+3,2026-09-08T16:43:10.972370+00:00,weather,500,"Weather cross-check for **Montevideo, Montevideo Department, Uruguay** (public APIs, no xAI key).
+
+- Open-Meteo: temp 13.4, feels 12.4, humidity 65, wind km/h 9.0, today max 13.6, today min 6.4  
+  https://open-meteo.com/
+- MET Norway: temp 13.3, humidity 66.5  
+  https://api.met.no/
+- wttr.in: Sunny, temp 15, feels 11, humidity 50, wind km/h 13  
+  https://wttr.in/montevideo
+
+Temperature spread across 3 APIs: 13.3–15.0 °C (Δ 1.7 °C).
+
+Sources are Open-Meteo, MET Norway, and wttr.in, plus web sn",https://open-meteo.com/,1
+4,2026-09-08T16:52:41.053966+00:00,weather,423,"Weather cross-check for **montevideo in imperial units** (public APIs, no xAI key).
+
+- wttr.in: error — Server error '500 Internal Server Error' for url 'https://wttr.in/montevideo%20in%20imperial%20units?format=j1'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500
+
+Sources are Open-Meteo, MET Norway, and wttr.in, plus web snippets. This is live lookup, not a trained weather model.",https://open-meteo.com/,1
+5,2026-09-08T16:57:40.701862+00:00,weather,500,"**weather for montevideo in imperial units** · Montevideo · imperial
+
+Montevideo, Uruguay: Open-Meteo · 56°F · 5 mph · 64% RH; MET Norway · 56°F · 66.5% RH; wttr.in · 59°F · Sunny · 8 mph · 50% RH Spread 56°F–59°F.
+
+Citations:
+- https://www.meteoblue.com/en/weather/week/montevideo-department_uruguay_3441572
+- https://www.accuweather.com/en/uy/montevideo/349269/hourly-weather-forecast/349269
+- https://www.weather-forecast.com/locations/Montevideo/forecasts/latest
+- https://www.meteoblue.com/en/we",,0
+6,2026-09-08T16:58:13.905914+00:00,weather,499,"**will it rain today?**
+
+Yes — precipitation shows up in the sources for this period.
+
+Citations:
+- https://precip.ai/rain-forecast/zipcode
+- https://www.rain-radar.com/
+- https://weather.com/uy/montevideo/city/montevideo/today
+- https://www.weather-forecast.com/locations/Montevideo/forecasts/latest
+- https://rainymap.com/where-is-it-raining-right-now/
+- https://isitgoingtorain.com/
+- https://willit.today/
+- https://rainyesno.com/en
+
+Answered from live web/API observations, not a trained model.",,0
+7,2026-09-08T16:59:03.028297+00:00,weather,500,"**do I need a jacket or a coat?**
+
+Not enough temperature readings in the results to pick jacket vs coat.
+
+Citations:
+- https://www.shoulditakeajacket.com/
+- https://doineedajacket.com/
+- https://jacketornot.app/
+- https://www.whetherwear.com/do-i-need-a-jacket-today
+- https://www.viget.com/articles/do-you-need-a-jacket
+- https://www.alpargali.com/blogs/buying-guide/coat-vs-jacket
+- https://wellfizz.com/winter-coat-vs-jacket/
+- https://www.workwearmanufacturer.com/coat-vs-jacket-difference-lengt",,0
+8,2026-09-08T17:01:39.433810+00:00,general,500,"**do I need an umbrella?**
+
+Yes — sources mention rain or showers, so an umbrella is warranted.
+
+Citations:
+- http://doineedanumbrella.com/
+- https://doineedanumbrella.net/
+- https://www.fidelity.com/viewpoints/wealth-management/do-you-need-umbrella-insurance
+- https://umbrellatoday.app/
+- https://www.insurance.com/umbrella-insurance-policy/pros-and-cons-of-umbrella-insurance
+- https://www.ramseysolutions.com/insurance/who-needs-umbrella-insurance
+- https://umbrellr.apps.gavinmogan.com/
+- https:",,0
+9,2026-09-08T18:13:11.387288+00:00,general,500,"One train leaves Town A heading towards Town B at some speed while at the same time, the other train leaves Town B heading towards Town A at another speed. If the distance between the two towns is x miles, how long will it take for the two trains to meet? Assume they're on parallel tracks, otherwise, we would more difficult puzzles to solve!
+
+if a train travels 60 miles per hour and leaves the station at 2:00 PM, what time will it arrive at a station 180 miles away?
+
+Word problems involving trai",,0
+10,2026-09-08T18:13:56.902399+00:00,general,500,"See shortcuts for time formats below. To solve for distance use the formula for distance d = st, or distance equals speed times time. distance = speed x time Rate and speed are similar since they both represent some distance per unit time like miles per hour or kilometers per hour. If rate r is the same as speed s, r = s = d/t.
+
+Calculate speed, distance, or time from any two values. Convert mph, km/h, m/s, knots, get min/mile pace, split times, and step-by-step math.
+
+Speed, distance, time calc",,0
+11,2026-09-08T18:19:04.786287+00:00,general,500,"It arrives at **5:00 PM**.
+
+**3 hours** of travel (180 miles ÷ 60 mph).
+
+Citations:
+- https://flyingsalmon.net/two-trains-problem/
+- https://www.gauthmath.com/solution/1814254257168406/if-a-train-travels-60-miles-per-hour-and-leaves-the-station-at-2-00-PM-what-time
+- https://www.analyzemath.com/math_problems/rate_time_dist_problems.html
+- https://www.onlinemathlearning.com/algebra-motion-problems.html
+- https://www.had2know.org/academics/solve-word-problems-train.html
+- https://www.onlinemathlea",,0
+12,2026-09-08T18:36:16.885385+00:00,general,499,"When the Moon is at its farthest point from Earth, known as its apogee, it can be as far as 406,700 km (252,700 miles) away. Conversely, when it is at its closest point, or perigee, the distance decreases to about 356,500 km (221,500 miles). These variations are due to gravitational forces between the Moon and the Earth, Sun, and other planets.
+
+The Moon is an average of 238,855 miles away from Earth, which is about 30 Earths away. You might be surprised. Often when we see drawings of the Earth",,0
+13,2026-09-08T18:42:22.312407+00:00,general,500,"You definitely do not need a car in Montevideo as the bus system is so convenient, but if you want to do day trips out of the city it makes sense.
+
+**Ciudad Vieja** is ideal if you want to be inside the historic core — museums, plazas, and Mercado del Puerto all within a short walk, with a lively daytime energy.
+
+Tourist distances are short, central parking is a headache, and Uber plus walking handles most of what you’ll actually want to do.
+
+Citations:
+- https://passportpilgrimage.com/destinati",,0
+14,2026-09-08T18:46:05.024479+00:00,economics,500,"There are many Uruguay mobile operators for consumers to choose from. This guide provides a detailed comparison of the main Uruguay mobile operators to help you determine which service provider is most suitable based on coverage, speed, price and key factors other.
+
+There are 157 Telecommunications service providers in Uruguay as of June, 2026. Download latest business data with contact info, ratings & locations.
+
+Citations:
+- https://www.zoominfo.com/top-lists/top-telecommunications-companies-i",,0
+15,2026-09-08T20:36:37.910571+00:00,general,500,"Current time in Uruguay right now in -03. Live clock with seconds, today's sunrise/sunset, public holidays, and interactive map - updated every second. Uruguay Time Questions What time is it in Uruguay right now? The clock at the top of this page shows the current local time in Montevideo, Uruguay, updating every second. It is calculated from the America/Montevideo time zone using your browser's copy of the IANA time zone database, so daylight saving rules are applied automatically and correctly",,0
+16,2026-09-08T20:41:43.165384+00:00,weather,500,"What time is it in Montevideo right now? See the live clock, UTC-3 UTC offset, time zone details, and Daylight Saving Time info for Montevideo, Uruguay.
+
+Current time in Montevideo, Uruguay (-03, UTC-3). Live clock with seconds, sunrise/sunset, timezone info and daylight-saving status - updated every second.
+
+What time is it in Montevideo right now? Live clock with seconds, current weather, UYT timezone info, time difference calculator and flight time from Montevideo, Uruguay.
+
+Citations:
+- http",,0
+17,2026-09-08T20:52:55.774214+00:00,coding,500,"The table below lists all 5 languages recorded for Argentina, covering every recognized language type — official, national, regional, minority, sign and other. For each language you can find its language family and sub-family (the broader linguistic group it belongs to), the writing script used, standardized ISO 639-1 and ISO 639-3 codes for technical integration, and the estimated number of ...
+
+Official Languages of Argentina Argentina's official language is Spanish. It's important to note tha",,0
+18,2026-09-08T20:53:32.307674+00:00,general,500,"Search Search Toggle the table of contents Languages of Argentina 9 languagesAdd topic rms of Useand Privacy Policy. Wikipedia® is a registered trademark of the Wikimedia Foundation, Inc., a non-profit organization.
+
+Citations:
+- https://en.wikipedia.org/wiki/Languages_of_Argentina
+- https://en.wikipedia.org/wiki/French_Argentines
+- https://blog.rosettastone.com/the-most-common-languages-spoken-in-argentina/
+- https://worldpopulationreview.com/countries/argentina/language
+- https://www.answers.c",,0
+19,2026-09-08T21:08:17.855586+00:00,general,500,"Wonder why you might be crying more — or less — than other people? Here are some reasons why we cry and what your tears are made of.
+
+Some people cry during commercials, while others only tear up for very sad or happy moments. Sometimes, we even cry randomly. But what's the reason behind the waterworks? Why do some people cry ...
+
+Why do babies cry? Babies usually cry to communicate when something is happening that they don't like. Your baby might cry because they're hungry, sleepy or need a dia",,0
+20,2026-09-08T21:09:25.036108+00:00,general,500,"Why do we laugh? Here are a few scientific reasons Laughter clearly serves a social function. It is a way for us to signal to another person that we wish to connect with them.
+
+Why do we laugh? There's way more to our giggles and guffaws than thinking something is funny. We asked a laughter expert to explain.
+
+Explore the science of laughter, why we laugh, and laughter and health benefits, including endorphins, bonding, and proven physical and mental advantages.
+
+Citations:
+- https://www.scienti",,0
+21,2026-09-08T21:10:17.806333+00:00,general,499,"Explore over 110 powerful responses to ""What do you think about me?"" that are honest, insightful, and help foster deeper connections in conversations.
+
+When someone asks 'What do you think about me?', this is how to respond. Here sharing sweet and cute answers to share when girl or guy asks what you're thinking of them.
+
+October 1, 2025by epiccomebacks When someone asks, ""What do you think about me?"" it's a golden opportunity to share something real, kind, and meaningful. Whether it's a friend,",,0
+22,2026-09-08T21:11:22.913444+00:00,general,500,"Java Hello World Program is the first program commonly used to learn Java. It introduces the basic structure of a Java program, including a class, the main() method, and the statement used to display output on the console.
+
+Hello World in Java is a public class with a `main` method that prints a line:
+
+```java
+public class HelloWorld {
+    public static void main(String[] args) {
+        System.out.println(""Hello, World!"");
+    }
+}
+```
+
+1. Install a JDK (Oracle or OpenJDK) and confirm `javac -ve",,0
+23,2026-09-08T21:36:03.722284+00:00,coding,500,"2) Code more. Type more. The meme below says it all. The more code you write, the better you become at it. It is a no-brainer. The obvious reason why companies sort out experienced developers.
+
+You can also use the comment function to quickly remove code from your program for testing purposes. Put comment tags around the code you want to exclude and then remove the comment tags to return the code.
+
+This is precisely how you get better writing code; you can stand on the shoulders of giants (by us",,0
+24,2026-09-08T22:56:13.359751+00:00,general,500,"A song about a woman who tries to encourage a guy to ask her out again after a failed first date. The song was a hit in 2000 and received a Grammy nomination for Best Female R&B Vocal Performance.
+
+Provided to YouTube by Foundation Media LLCTry Again · Ann MarieGOATED℗ 2025 Ann Marie / StreamCutReleased on: 2025-12-26Main Artist: Ann MarieComposer Lyric...
+
+Citations:
+- https://en.wikipedia.org/wiki/Try_Again_(Aaliyah_song
+- https://www.youtube.com/watch?v=btL2HySlno8
+- https://www.youtube.com/w",,0
+25,2026-09-08T23:35:37.122203+00:00,coding,232,"coding workspace=~/workspace/Desktop/Calculator only.
+
+Build a Vite React TypeScript month calendar with Tailwind. Empty folder.
+
+1. workspace_info then list_dir
+2. npm create v check_passed=True files_patched=apply_patch/write_file",,0
+26,2026-09-08T23:54:26.146013+00:00,coding,210,"Calculator workspace at ~/workspace/Desktop/Calculator was empty except _cli_test.log. Added hello.py (hello() -> ""Hello, World!"") and test_hello.py. pytest timed out; python -c import/assert of hello() passed.",workspace://Calculator,1
+27,2026-09-08T23:54:40.887591+00:00,general,124,coding workspace=~/workspace/Calculator last_feature=hello world test check_passed=True files_patched=apply_patch/write_file,,0
+28,2026-09-08T23:58:49.549114+00:00,coding,274,"Coding workspace=~/workspace/vite). App lives in src/App.tsx using MediaRecorder, getUserMedia, playback, webm download. Scripts: npm run dev, npm run build (tsc -b && vite build). create-vite failed due to locked _agent_run.log (EPERM); project files were written manually.",file://C:/Users/freed/OneDrive/Desktop/Calculator,1
+29,2026-09-08T23:59:01.870712+00:00,general,156,"coding workspace=~/workspace/stop recording with MediaRecorder, play back, download as webm. Use Tail check_passed=True files_patched=apply_patch/write_file",,0
+30,2026-09-09T00:08:33.089291+00:00,coding,180,"Coding workspace=~/workspace/vite). App lives in src/App.tsx as a single-page guide (gear, bait, casting, safety, tips). Scripts: npm run dev, npm run build (tsc -b && vite build).",workspace://C:/Users/freed/OneDrive/Desktop/trash,1
+31,2026-09-09T00:08:47.098197+00:00,general,283,"coding workspace=~/workspace/trash last_feature=Build a Vite + React + TypeScript (TSX) webpage that teaches how to fish. Make it a polished single-page guide with clear sections (gear, bait, casting, safety, tips), nice styling check_passed=True files_patched=apply_patch/write_file",,0
+32,2026-09-09T00:18:17.887091+00:00,coding,151,"Coding workspace=~/workspace/App.tsx (services, about, testimonials, contact/booking form). Scripts: npm run dev, npm run build (tsc -b && vite build).",https://tailwindcss.com/docs/installation/using-vite,1
+33,2026-09-09T00:18:41.270205+00:00,general,282,coding workspace=~/workspace/shit last_feature=First use web_search (and read_url on the best hits) to learn current best practices for building a Vite + React + TypeScript physical therapy clinic website. Then scaffold and bui check_passed=True files_patched=apply_patch/write_file,,0
+34,2026-09-09T00:51:09.325363+00:00,general,266,"Coding workspace=~/workspace/Desktop/cron. Requested a Vite + React 19 + TypeScript + Tailwind v4 hospital website (single-page: emergency, services, doctors, appointments, contact). This turn had no file-write tools; deliver source for the user to scaffold locally.",https://vite.dev/guide/,1
+35,2026-09-09T01:13:25.914463+00:00,coding,258,"Workspace ~/workspace/Desktop/cron is a Node.js cron scheduler (CommonJS). Stack: node-cron ^3.0.3, Node >=18. Entry: index.js (createJob, start). Scripts: npm start (node index.js), npm test (node --test). Tests in index.test.js. Do not commit unless asked.",local://cron,1
+36,2026-09-09T01:13:43.781522+00:00,general,161,coding workspace=~/workspace/cron last_feature=create a basic cron project with package.json and README.md check_passed=True files_patched=apply_patch/write_file,,0
+37,2026-09-09T01:22:52.457974+00:00,coding,143,"Lighting ad site for ~/workspace/App.tsx, src/index.css, index.html. Scripts: npm run dev, npm run build (tsc -b && vite build). Verify passed.",file://C:/Users/freed/OneDrive/Desktop/cron,1
+38,2026-09-09T01:23:10.161286+00:00,general,188,"coding workspace=~/workspace/Desktop/Grok Cli Ai Build last_feature=uild a website that advertise light in ""~/workspace/Desktop/cron"" check_passed=True files_patched=apply_patch/write_file",,0
+39,2026-09-09T13:59:31.600270+00:00,general,163,"coding workspace=~/workspace/Desktop/terra last_feature=can you see this folder ""~/workspace/Desktop/terra"" check_passed=False files_patched=apply_patch/write_file",,0
+40,2026-09-09T15:06:59.062641+00:00,coding,121,"Coding mode run_cmd allowlist: python, py, npm, npx, node, git, pytest, pip, tsc, yarn, uv. CI=1 for non-interactive npm.",knowledge:coding-cli,1
+41,2026-09-09T15:06:59.062641+00:00,coding,128,Use cli/ai.ps1 from the target project cwd with mode=code; API at http://127.0.0.1:8000/chat. Prefer yarn when yarn.lock exists.,knowledge:coding-cli,1
+42,2026-09-09T15:06:59.062641+00:00,general,140,Windows: translate bash mkdir -p / && to PowerShell New-Item / separate commands. Never suggest irm|iex or recursive wipe in agent commands.,knowledge:coding-cli,1
+43,2026-09-09T15:06:59.062641+00:00,coding,126,"Verify coding work with npm run build, yarn lint / npm run lint, npx tsc --noEmit, or one pytest file — not create-vite alone.",knowledge:coding-cli,1
+44,2026-09-09T17:22:29.723289+00:00,coding,391,"Workspace ~/workspace/Desktop/petro: empty folder initialized with yarn init -y. Yarn Classic 1.22.22 is on PATH globally and also installed as a local devDependency (yarn@^1.22.22). yarn set version stable failed with npm registry 503. Verify with: yarn --version or npx yarn --version. package.json name=petro, license MIT. package-lock.json present (npm was used to add the yarn package).",https://yarnpkg.com/getting-started/install,1
+45,2026-09-09T17:22:29.723289+00:00,general,186,"coding workspace=~/workspace/Desktop/petro last_feature=can you see the folder ""~/workspace/Desktop/petro"" and install yarn in it? check_passed=False files_patched=apply_patch/write_file",,0
+46,2026-09-09T19:08:18.393109+00:00,general,151,"coding workspace=~/workspace/Desktop/utter last_feature=can you see ""~/workspace/Desktop/utter"" check_passed=False files_patched=apply_patch/write_file",,0
+47,2026-09-09T19:11:00.334983+00:00,coding,161,Folder ~/workspace/npm/yarn.CMD). Agent cwd is Grok Cli Ai Build; npm --prefix utter init -y wrote extra metadata into this repo's package.json instead of utter.,https://yarnpkg.com/getting-started/install,1
+48,2026-09-09T19:11:00.342573+00:00,coding,149,coding workspace=~/workspace/Grok Cli Ai Build last_feature=can you install yarn an npm in it? check_passed=True files_patched=apply_patch/write_file,,0
+49,2026-09-09T19:17:51.718996+00:00,coding,380,"coding workspace=~/workspace/utterus last_feature=install yarn and npm. Empty folder initialized with yarn init -y. Yarn Classic 1.22.22 is on PATH globally and also installed as a local devDependency (yarn@1.22.22). Node v24.18.0, npm 11.16.0. package.json name=utterus, yarn.lock present. Verify: yarn lint (checks yarn.lock) or yarn --version / npm --version. check_passed=True",file://C:/Users/freed/OneDrive/Desktop/utterus/package.json,1
+50,2026-09-09T19:17:51.724774+00:00,coding,179,"coding workspace=~/workspace/Desktop/utterus last_feature=alright then install yarn and npm in ""~/workspace/Desktop/utterus"" check_passed=True files_patched=apply_patch/write_file",,0
+51,2026-09-09T19:27:17.126677+00:00,general,247,"coding workspace=~/workspace/restaurant, smoke outside). Scripts: yarn install, yarn dev, yarn lint (eslint .), yarn build (tsc --noEmit && vite build). Stack: React 19, Vite 6, TypeScript 5.8, ESLint 9. App lives in src/App.tsx. check_passed=True",https://vite.dev/guide/,1
+52,2026-09-09T19:27:17.134045+00:00,general,281,"coding workspace=~/workspace/Desktop/utterus last_feature=can you look on the web to learn how to create website in tsx in ""~/workspace/Desktop/utterus""  for volley ball reservation 30$ for 30 minutes, 50$ for 60 minutes. they check_passed=True files_patched=apply_patch/write_file",,0
+53,2026-09-09T19:30:18.303143+00:00,general,160,"coding workspace=~/workspace/Desktop/utterus last_feature=run yarn lint for ""~/workspace/Desktop/utterus"" check_passed=True files_patched=apply_patch/write_file",,0
+54,2026-09-09T19:31:08.853788+00:00,general,128,coding workspace=~/workspace/utterus last_feature=did you find any errors check_passed=True files_patched=apply_patch/write_file,,0
+55,2026-09-09T19:33:58.643371+00:00,general,82,Utterus volleyball reservation site (~/workspace/index.css and public/favicon.svg.,https://vitejs.dev/guide/,1
+56,2026-09-09T19:34:53.036815+00:00,general,213,"coding workspace=~/workspace/Desktop/utterus last_feature=modifify ""~/workspace/Desktop/utterus"" so anything green can be blue and anthing blue can be yellow. check_passed=True files_patched=apply_patch/write_file",,0
+57,2026-09-09T19:37:35.293840+00:00,general,80,Utterus (~/workspace/index.css; public/favicon.svg fill #1f4a6b. Not a git repo.,workspace://utterus,1
+58,2026-09-09T19:37:51.303873+00:00,general,193,coding workspace=~/workspace/utterus last_feature=teach yourself to always run yarn lint then yarn build after changing or editing any tsx check_passed=True files_patched=apply_patch/write_file,,0
+59,2026-09-09T19:45:54.617098+00:00,sports,506,"Utterus (Vite + React + TS, yarn) now has a Synthesis lab at src/SynthesisLab.tsx plus extractive engine in src/synthesis/engine.ts. Method: normalize websites/text/audio/video/pictures into text + metadata, rank salient sentences, cluster overlapping claims (corroborated/single/conflict), write one overview with gaps and URL citations. Samples cite Azure Language summarization, W3C image alt tutorial/decision tree, OpenAI Whisper, Azure Speech to Text. yarn lint (eslint .) exited 0 after these files.",https://learn.microsoft.com/en-us/azure/ai-services/language-service/summarization/overview,1
+60,2026-09-09T19:46:14.073900+00:00,general,195,"coding workspace=~/workspace/utterus last_feature=teach yourself how to do summary, synthesis of  websites, texts, audio, video and pictures check_passed=True files_patched=apply_patch/write_file",,0
+61,2026-09-09T20:03:01.897161+00:00,general,917,"Logic package installed (2026): skills read-media, argue-and-synthesize, stay-grounded, learn-skill, plus knowledge packs skill-learning, media-literacy, summarize-method, writing-forms, argument-logic, epistemic-virtues. Self-learning does not train weights. Skills live in server/mcp/skills/<name>/SKILL.md (prompt injection by phase). Knowledge packs live in server/mcp/knowledge/<name>.md (consult_knowledge). Memory is append-only JSONL. Summarize primary sources in the source’s voice, shorter than the original, with claims/evidence/author separated; analytical essays need a contestable thesis, evidence, and warrants—not summary-as-argument. Impartial analysis steelmans rivals and does not bury counterevidence. Harvard Guide to Using Sources + PrepScholar analytical-essay structure used as refinement notes. write_knowledge tool was not available this turn; packs were locked via consult + memory receipt.",https://usingsources.fas.harvard.edu/summarizing-paraphrasing-and-quoting,1
+62,2026-09-09T20:03:38.437347+00:00,general,317,"Logic package skills on disk: learn-skill, read-media, summarize, write-forms, argue-and-synthesize, stay-grounded. Matching knowledge: skill-learning, media-literacy, summarize-method, writing-forms, argument-logic, epistemic-virtues. Self-learn via list_learned / write_skill / write_knowledge (no weight training).",local://server/mcp,1
+63,2026-09-09T20:28:51.871918+00:00,general,320,YouTube video b-HSJD3mmSA is Morgan Stanley’s “Private Credit: Financing the Real Economy” (channel @morganstanley). It matches Morgan Stanley Wealth Management’s Alts Report series of the same name. Public oEmbed confirms title/author; YouTube blocked page HTML and timedtext/transcript fetches (401 / no captions API).,https://www.youtube.com/watch?v=b-HSJD3mmSA,1
+64,2026-09-09T20:29:08.667529+00:00,general,116,coding workspace=~/workspace/b-HSJD3mmSA?si=VtGlM_TKhRghH7nw check_passed=False files_patched=apply_patch/write_file,,0
+65,2026-09-09T20:34:07.820584+00:00,general,144,coding workspace=~/workspace/Grok Cli Ai Build last_feature=read and summarize Genesis 3 check_passed=False files_patched=apply_patch/write_file,,0
+66,2026-09-09T20:37:29.064479+00:00,general,149,coding workspace=~/workspace/Grok Cli Ai Build last_feature=can you give me the full summary? check_passed=False files_patched=apply_patch/write_file,,0
+67,2026-09-09T20:40:29.283231+00:00,general,181,coding workspace=~/workspace/Grok Cli Ai Build last_feature=can you go to the cnn website and tell me what the headlines are? check_passed=False files_patched=apply_patch/write_file,,0
+68,2026-09-09T21:17:43.172627+00:00,general,535,"Argentina, Uruguay, and Brazil all have railways. Argentina: Trenes Argentinos (national passenger), Buenos Aires Subte, large commuter network, plus freight. Uruguay: AFE (Administración de Ferrocarriles del Estado) is the state railway; network ~2,835 km standard gauge; freight is the main use today and passenger service is limited. Brazil: large freight network (Rumo, Vale, ANTT-regulated); strong urban/commuter rail (CPTM São Paulo, SuperVia Rio, metros); long-distance passenger rail is limited; high-speed TAV not in service.",https://www.argentina.gob.ar/transporte/trenes-argentinos,1
+69,2026-09-09T21:18:31.505154+00:00,general,184,"coding workspace=~/workspace/Grok Cli Ai Build last_feature=do they have train transportation in argentina, uruguay, and brazil? check_passed=False files_patched=apply_patch/write_file",,0
+70,2026-09-09T21:28:12.184025+00:00,general,431,"Montevideo mail: Correo Uruguayo delivers to street addresses (name, street + number, apto., 5-digit CP, Montevideo, Uruguay). Official PO Box equivalent is casilla de correo at https://www.correo.com.uy/casilla-correo. Private mailbox rental also exists (e.g. Mail Boxes Etc. Uruguay). Buildings typically have buzones (letterboxes). You cannot use a made-up address; you need a real residence, hotel, casilla, or private mailbox.",https://www.correo.com.uy/casilla-correo,1
+71,2026-09-09T21:29:04.532359+00:00,general,170,coding workspace=~/workspace/Grok Cli Ai Build last_feature=Do they use mailbox like PO Box and Montevideo Uruguay check_passed=False files_patched=apply_patch/write_file,,0
+72,2026-09-09T21:57:33.751883+00:00,general,136,coding workspace=~/workspace/Grok Cli Ai Build last_feature=Do you speak Russian check_passed=False files_patched=apply_patch/write_file,,0
+73,2026-09-09T22:15:24.553774+00:00,general,158,coding workspace=~/workspace/Grok Cli Ai Build last_feature=How to say how are you in Russian language check_passed=False files_patched=apply_patch/write_file,,0
+74,2026-09-11T13:16:58.167780+00:00,general,500,"**Artificial intelligence (AI)** is the ability of computers and software to handle tasks we usually associate with human intelligence—learning, reasoning, solving problems, perceiving the world, and making decisions.
+
+It’s both a capability and a research field spanning computer science, engineering, and mathematics. The core idea is building systems that can sense their environment, learn from data, and take actions that improve their chances of hitting a defined goal.
+
+High-profile examples y",,0
+75,2026-09-11T13:21:56.562218+00:00,general,375,"Hey, I pulled up https://example.com for you.
+
+It’s the classic placeholder page titled **Example Domain**. The text explains that this domain is meant for use in documentation examples without needing permission, and you should avoid using it in real operations. There’s a “Learn more” link as well.
+
+That’s the whole page—short and simple, exactly as intended for examples.",,0
+76,2026-09-11T22:55:18.907191+00:00,economics,211,"Shoe Station Group, Inc. appears listed on Nasdaq as common stock ticker SHOE (not privately held as previously assumed). Do not confuse with Shoe Carnival (typically SCVL). User asked after-hours trading price.",https://www.nasdaq.com/market-activity/stocks/shoe,1
+77,2026-09-11T23:51:49.918232+00:00,general,267,"Shoe Station Group, Inc. (Nasdaq: SHOE) last quoted around $12.71, up about 3.50% in the regular session, with after-hours also at $12.71 as of Sep 11, 2026. Coverage described a rebound despite deep margin and sales erosion. Do not confuse with Shoe Carnival (SCVL).",https://www.nasdaq.com/market-activity/stocks/shoe,1
+78,2026-09-11T23:55:47.923612+00:00,general,167,"Belgrade, Serbia uses Europe/Belgrade (CEST, UTC+2 in summer; CET, UTC+1 from late October). On Saturday 12 Sep 2026 around 01:55 local, sunrise ~06:13, sunset ~18:55.",https://time.is/Belgrade,1
+79,2026-09-12T00:18:02.868804+00:00,coding,128,"coding workspace=~/workspace/App.css,src/index.css,index.html package_manager=npm lint=npm run lint (oxlint) build=npm run build",file://C:/Users/freed/OneDrive/Desktop/tsx chess game challenge,1
+80,2026-09-12T00:21:48.691139+00:00,sports,210,"coding workspace=~/workspace/Desktop/tsx chess game challenge last_feature=can you write a tsx chess game in ""~/workspace/Desktop/tsx chess game challenge"" check_passed=True files_patched=apply_patch/write_file",,0
+81,2026-09-12T00:25:24.165923+00:00,sports,200,"tsx chess game challenge workspace (~/workspace/npm lockfile conflict. Use yarn only (yarn.lock present). Scripts: lint=oxlint, build=tsc -b && vite build. yarn lint last ran with 0 warnings/0 errors.",workspace://tsx-chess-game-challenge,1
+82,2026-09-12T00:25:24.168849+00:00,sports,225,"coding workspace=~/workspace/Desktop/tsx chess game challenge last_feature=delete the lockpkg json in ""~/workspace/Desktop/tsx chess game challenge"" to solve the conflict check_passed=True files_patched=apply_patch/write_file",,0
+83,2026-09-12T00:26:42.732983+00:00,sports,193,"coding workspace=~/workspace/Desktop/tsx chess game challenge last_feature=add yarn lint in ""~/workspace/Desktop/tsx chess game challenge"" check_passed=True files_patched=apply_patch/write_file",,0
+84,2026-09-12T01:23:45.915760+00:00,weather,230,"Weather cross-check for Montevideo, Uruguay (metric): Open-Meteo 12.2°C, feels 9.4°C, humidity 80%, wind 17.1 km/h, precip 0.0, today max 12.6 / min 10.2. MET Norway 12.2°C, humidity 85.3%. wttr.in 11°C, overcast, 10 km/h, 76% RH.",https://open-meteo.com/,1
+85,2026-09-12T01:24:47.632039+00:00,weather,306,"Weather cross-check for Montevideo, Montevideo Department, Uruguay (metric): Open-Meteo 12.2°C, feels 9.4°C, humidity 80%, wind 17.1 km/h, precip 0.0, today max 12.6°C, today min 10.2°C. MET Norway 12.2°C, humidity 85.3%, wind 5.8 m/s. wttr.in Centro 11°C, feels 10°C, humidity 76%, wind 10 km/h, Overcast.",https://open-meteo.com/,1
+86,2026-09-12T01:26:56.884395+00:00,weather,244,"Weather cross-check for Montevideo, Uruguay (metric): Open-Meteo 12.2°C, feels 9.4°C, humidity 80%, wind 17.1 km/h, precip 0.0, today max 12.6 / min 10.2. MET Norway 12.1°C, humidity 80.1%, wind 6.0 m/s. wttr.in 11°C, overcast, 10 km/h, 76% RH.",https://open-meteo.com/,1
+87,2026-09-12T11:25:16.378367+00:00,general,500,"Montevideo Uruguay Is: wttr.in · 2.0°C · Light sleet showers · 9 km/h · 93% RH Spread 2.0°C–2.0°C.
+
+Citations:
+- https://wttr.in/Montevideo%20Uruguay%20Is
+- https://news.google.com/rss/articles/CBMiswFBVV95cUxQT3N3RHFuUkRpTXdOUFl4OGhWeDRRaEVuSjFLN2ZTZE9USF80TE5jVzR3YmRUcXVvU1RiMG80ajNyM3VUNEZBaFR6Wk1jT2x3S0Y3dlVCaU96eGthajA5ZU5xckdXQ2pjWHhKZm4zUk1NU0dycmJNcGl6OGpxa3h1R0wtUEtMSk5JZDhHb242OV9XZUNNVVNON01UeVc2SVJJdzRFV3U2ZlRsUXBmaUR1OXZYaw?oc=5
+- https://news.google.com/rss/articles/CBMivwFBVV95cUx",,0
+88,2026-09-12T11:30:30.087105+00:00,weather,285,"Weather in Montevideo, Uruguay: around 10–11°C (Open-Meteo 11.2°C feels 6.2°C; MET Norway 11.1°C; wttr.in 10°C). Humidity ~87–93%, windy (Open-Meteo 32 km/h). Precip 0.0 mm now; wttr.in reports patchy rain nearby. Not snowing — temps well above freezing. Today max ~12.4°C, min ~8.9°C.",https://open-meteo.com/,1
+89,2026-09-12T18:03:51.912088+00:00,sports,233,"When asked who plays / what time this weekend, list named matchups (Tampa Bay Buccaneers at Cincinnati Bengals; ET. Kansas City Chiefs at Los Angeles Chargers), not generic 1pm/4pm/SNF windows. Sources: https://www.nfl.com/schedules.",https://www.nfl.com/schedules,1
+90,2026-09-12T19:04:42.058863+00:00,sports,400,"From prior research on “anything about gas prices, inflation or anything economics in the news in europe”: Coverage (including the *New York Times*) frames this as a move to quell inflation. Sources: https://news.google.com/rss/articles/CBMijgFBVV95cUxPMGlxa0FOS0lsVkNiRERaRE1FRjF2M092VmxtRG9GMGo5VG1paktWRFJ5Q1hRVkNfX0kwXzNnemV1NEJ4UHZmcFNSelRmdjRnbkQ5YmJtLW5LTTE2b1NFQmczbE1RdXV3VkRKUDJlRjFzeFhVTXp",https://news.google.com/rss/articles/CBMijgFBVV95cUxPMGlxa0FOS0lsVkNiRERaRE1FRjF2M092VmxtRG9GMGo5VG1paktWRFJ5Q1hRVkNfX0kwXzNnemV1NEJ4UHZmcFNSelRmdjRnbkQ5YmJtLW5LTTE2b1NFQmczbE1RdXV3VkRKUDJlRjFzeFhVTXplVjhfMC10SWVCWV9oZnRhQUtadm9naE1R?oc=5,1

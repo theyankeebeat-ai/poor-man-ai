@@ -10,7 +10,10 @@
     "dev:api": "python -m uvicorn server.main:app --reload --app-dir . --host 127.0.0.1 --port 8000",
     "dev:node": "node cli/node_gateway.mjs",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "deploy:hosting": "npm run build && firebase deploy --only hosting --project zerogravity-ab52d --non-interactive",
+    "deploy:functions": "firebase deploy --only functions:poor-man-ai --project zerogravity-ab52d --non-interactive",
+    "preview": "vite preview",
+    "prepare:kaggle": "python scripts/prepare_kaggle_dataset.py && python scripts/generate_notebook.py"
   },
   "dependencies": {
     "lucide-react": "^0.395.0",

@@ -343,24 +343,27 @@ RECOMMENDED_ARCH_KEY = "poor_man_1b"
 
 
 def runtime_profile() -> Dict[str, Any]:
-    """Active runtime for low-end PCs: 1B INT4 + Fast thinking + local heuristics."""
+    """Describe the actual runtime separately from architecture estimates."""
+    from server.hf_tiny import runtime_status
     hp = PRESET_HYPERPARAMETERS["fast_heuristic"]
     bp = get_architecture_blueprint(RECOMMENDED_ARCH_KEY)
     return {
         "id": "low_end_fast",
         "arch_key": RECOMMENDED_ARCH_KEY,
-        "name": bp["spec"]["name"],
-        "formatted_params": bp["formatted_params"],
-        "precision": "int4",
-        "quant_method": "awq",
+        "name": "Local heuristics with BERT-tiny retrieval",
+        "formatted_params": "4.4M (BERT encoder)",
+        "precision": "float32",
+        "quant_method": "none",
+        "hf": runtime_status(),
+        "blueprint_only": True,
         "thinking_level": "low",
         "preset": "fast_heuristic",
         "max_steps": 5,
         "int4_gb": bp["memory_estimates"]["int4_gb"],
         "hyperparameters": asdict(hp),
         "reason": (
-            "PoorMan-Mini-1B in INT4 AWQ (~0.60 GB). Fastest blueprint that still "
-            "fits a low-end PC; Fast thinking skips crew, critique, and extra tool hops."
+            "Architecture presets are estimates. BERT-tiny loads its own fixed configuration "
+            "for passage retrieval; chat generation requires a configured LLM provider."
         ),
     }
 

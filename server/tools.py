@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import os
 import re
 import subprocess
+import time
 import uuid
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -214,11 +216,31 @@ async def web_search(args: dict[str, Any]) -> str:
     serper = os.getenv("SERPER_API_KEY")
 
     client = http_client()
+    # One small request at a time. Parallel HTML search was freezing the only worker.
+    try:
+        results.extend(
+            await asyncio.wait_for(_wikipedia_opensearch(client, query), timeout=4.0) or []
+        )
+    except Exception:
+        pass
+    if len(results) < 3:
+        try:
+            news = await asyncio.wait_for(_google_news_search(client, query), timeout=4.0)
+        except Exception:
+            news = []
+        for hit in news or []:
+            url = str(hit.get("url") or "")
+            if url and not any(str(r.get("url") or "") == url for r in results):
+                results.append(hit)
+    out = json.dumps(results[:8], ensure_ascii=False)
+    cache_put("search", out, query)
+    return out
     if True:
         if tavily:
             r = await client.post(
                 "https://api.tavily.com/search",
                 json={"api_key": tavily, "query": query, "max_results": 8},
+                timeout=5.0,
             )
             r.raise_for_status()
             for item in r.json().get("results", [])[:8]:
@@ -234,6 +256,7 @@ async def web_search(args: dict[str, Any]) -> str:
                 "https://api.search.brave.com/res/v1/web/search",
                 params={"q": query, "count": 8},
                 headers={"Accept": "application/json", "X-Subscription-Token": brave},
+                timeout=5.0,
             )
             r.raise_for_status()
             for item in r.json().get("web", {}).get("results", [])[:8]:
@@ -249,6 +272,7 @@ async def web_search(args: dict[str, Any]) -> str:
                 "https://google.serper.dev/search",
                 headers={"X-API-KEY": serper, "Content-Type": "application/json"},
                 json={"q": query, "num": 8},
+                timeout=5.0,
             )
             r.raise_for_status()
             for item in r.json().get("organic", [])[:8]:
@@ -272,6 +296,7 @@ async def web_search(args: dict[str, Any]) -> str:
                             "Accept": "application/json",
                             "Authorization": f"Bearer {jina_key}",
                         },
+                        timeout=5.0,
                     )
                     r.raise_for_status()
                     text = r.text
@@ -308,41 +333,18 @@ async def web_search(args: dict[str, Any]) -> str:
                 jina_err = "skipped anonymous s.jina.ai (often 401 without JINA_API_KEY)"
 
             if not results:
-                # 1. If query is news/current events or general search fallback: Google News RSS
+                # News RSS and Wikipedia are small. HTML result pages were
+                # freezing the free CPU for about 30s, so they stay off this path.
+                raced = [
+                    asyncio.create_task(_google_news_search(client, query)),
+                    asyncio.create_task(_wikipedia_opensearch(client, query)),
+                ]
                 try:
-                    news_hits = await _google_news_search(client, query)
-                    if news_hits:
-                        results.extend(news_hits)
-                except Exception as e:
-                    logger.debug("Google news search error: %s", e)
-
-            if len(results) < 4:
-                # 2. Bing organic search fallback (no API key required)
-                try:
-                    bing_hits = await _bing_search(client, query)
-                    for b in bing_hits:
-                        if not any(r["url"] == b["url"] for r in results):
-                            results.append(b)
-                except Exception as e:
-                    logger.debug("Bing search error: %s", e)
-
-            if len(results) < 4:
-                # 3. DuckDuckGo HTML / Lite fallback
-                try:
-                    ddg_hits = await _duckduckgo_html(client, query)
-                    for d in ddg_hits:
-                        if not any(r["url"] == d["url"] for r in results):
-                            results.append(d)
-                except Exception as e:
-                    logger.debug("DDG search error: %s", e)
-
-            if not results:
-                # 4. Wikipedia OpenSearch as final informative fallback
-                try:
-                    wiki_hits = await _wikipedia_opensearch(client, query)
-                    results.extend(wiki_hits)
-                except Exception as e:
-                    logger.debug("Wikipedia opensearch error: %s", e)
+                    results.extend(await _first_hits(raced, want=4, limit=5.0))
+                finally:
+                    for task in raced:
+                        if not task.done():
+                            task.cancel()
 
     out = json.dumps(results[:8], ensure_ascii=False)
     cache_put("search", out, query)
@@ -364,6 +366,86 @@ def _decode_bing_url(raw_url: str) -> str:
     return raw_url
 
 
+_HTML_CAP = 160_000
+_BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+
+async def _first_hits(
+    tasks: list[asyncio.Task[list[dict[str, str]]]],
+    want: int,
+    limit: float,
+) -> list[dict[str, str]]:
+    """Take the first sources that return enough hits, then cancel the rest."""
+    results: list[dict[str, str]] = []
+    seen: set[str] = set()
+    pending: set[asyncio.Task[list[dict[str, str]]]] = set(tasks)
+    deadline = time.monotonic() + limit
+    try:
+        while pending and len(results) < want:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            done, pending = await asyncio.wait(
+                pending, timeout=remaining, return_when=asyncio.FIRST_COMPLETED
+            )
+            if not done:
+                break
+            for task in done:
+                hits: list[dict[str, str]] = []
+                try:
+                    hits = task.result() or []
+                except Exception:
+                    hits = []
+                for hit in hits:
+                    url = str(hit.get("url") or "")
+                    if not url or url in seen:
+                        continue
+                    seen.add(url)
+                    results.append(hit)
+    finally:
+        for task in pending:
+            task.cancel()
+    return results
+
+
+async def _fetch_html(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    timeout: float,
+    method: str = "GET",
+    **kwargs: Any,
+) -> str:
+    """Read only the head of an HTML page so parsing stays off the slow path."""
+    try:
+        async with client.stream(
+            method,
+            url,
+            timeout=timeout,
+            headers=_BROWSER_HEADERS,
+            **kwargs,
+        ) as response:
+            if response.status_code != 200:
+                return ""
+            chunks: list[bytes] = []
+            size = 0
+            async for chunk in response.aiter_bytes():
+                chunks.append(chunk)
+                size += len(chunk)
+                if size >= _HTML_CAP:
+                    break
+            return b"".join(chunks).decode("utf-8", "replace")
+    except Exception:
+        return ""
+
+
 async def _google_news_search(client: httpx.AsyncClient, query: str) -> list[dict[str, str]]:
     """Live Google News RSS search providing real-time articles, dates, and sources without API keys."""
     headers = {
@@ -376,10 +458,13 @@ async def _google_news_search(client: httpx.AsyncClient, query: str) -> list[dic
     }
     g_url = f"https://news.google.com/rss/search?q={quote(query)}&hl=en-US&gl=US&ceid=US:en"
     try:
-        r = await client.get(g_url, headers=headers, timeout=8.0)
+        r = await client.get(g_url, headers=headers, timeout=5.0)
         if r.status_code != 200:
             return []
-        clean_xml = re.sub(r"<\?xml[^>]+\?>", "", r.text).strip()
+        raw = r.text[:60_000]
+        if "<item" not in raw.lower() and "<entry" not in raw.lower():
+            return []
+        clean_xml = re.sub(r"<\?xml[^>]+\?>", "", raw).strip()
         root = ET.fromstring(clean_xml)
         items = root.findall(".//item")
         results: list[dict[str, str]] = []
@@ -397,40 +482,36 @@ async def _google_news_search(client: httpx.AsyncClient, query: str) -> list[dic
         return []
 
 
+def _parse_bing(html: str) -> list[dict[str, str]]:
+    soup = BeautifulSoup(html, "html.parser")
+    results: list[dict[str, str]] = []
+    for li in soup.find_all("li", class_="b_algo"):
+        h2 = li.find("h2")
+        if not h2:
+            continue
+        a = h2.find("a")
+        if not a or not a.get("href"):
+            continue
+        title = a.get_text(strip=True)
+        real_url = _decode_bing_url(a["href"])
+        caption = li.find("div", class_="b_caption")
+        p = caption.find("p") if caption else None
+        snip = p.get_text(strip=True) if p else ""
+        if title and real_url.startswith("http"):
+            results.append({"title": title, "url": real_url, "snippet": snip[:350]})
+        if len(results) >= 8:
+            break
+    return results
+
+
 async def _bing_search(client: httpx.AsyncClient, query: str) -> list[dict[str, str]]:
-    """Free Bing HTML organic search."""
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-    }
+    """Free Bing HTML organic search. Parsing runs off the event loop."""
     url = f"https://www.bing.com/search?q={quote(query)}"
+    html = await _fetch_html(client, url, timeout=5.0)
+    if not html:
+        return []
     try:
-        r = await client.get(url, headers=headers, timeout=8.0)
-        if r.status_code != 200:
-            return []
-        soup = BeautifulSoup(r.text, "html.parser")
-        results: list[dict[str, str]] = []
-        for li in soup.find_all("li", class_="b_algo"):
-            h2 = li.find("h2")
-            if not h2:
-                continue
-            a = h2.find("a")
-            if not a or not a.get("href"):
-                continue
-            title = a.get_text(strip=True)
-            real_url = _decode_bing_url(a["href"])
-            caption = li.find("div", class_="b_caption")
-            p = caption.find("p") if caption else None
-            snip = p.get_text(strip=True) if p else ""
-            if title and real_url.startswith("http"):
-                results.append({"title": title, "url": real_url, "snippet": snip[:350]})
-            if len(results) >= 8:
-                break
-        return results
+        return await asyncio.wait_for(asyncio.to_thread(_parse_bing, html), timeout=3.0)
     except Exception:
         return []
 
@@ -442,7 +523,7 @@ async def _wikipedia_opensearch(client: httpx.AsyncClient, query: str) -> list[d
         f"&limit=6&namespace=0&format=json"
     )
     try:
-        r = await client.get(url, timeout=6.0)
+        r = await client.get(url, timeout=4.0)
         if r.status_code == 200:
             data = r.json()
             if isinstance(data, list) and len(data) >= 4:
@@ -464,37 +545,20 @@ async def _wikipedia_opensearch(client: httpx.AsyncClient, query: str) -> list[d
 
 async def _duckduckgo_html(client: httpx.AsyncClient, query: str) -> list[dict[str, str]]:
     """Parse DuckDuckGo HTML/lite results. No API key."""
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
-        )
-    }
-    html = ""
-    try:
-        r = await client.get(
-            "https://lite.duckduckgo.com/lite/",
-            params={"q": query},
-            headers=headers,
-            timeout=7.0,
-        )
-        if r.status_code == 200:
-            html = r.text
-    except Exception:
-        pass
-
+    html = await _fetch_html(
+        client,
+        "https://lite.duckduckgo.com/lite/",
+        timeout=4.0,
+        params={"q": query},
+    )
     if not html:
-        try:
-            r = await client.post(
-                "https://html.duckduckgo.com/html/",
-                data={"q": query},
-                headers=headers,
-                timeout=7.0,
-            )
-            if r.status_code == 200:
-                html = r.text
-        except Exception:
-            pass
+        html = await _fetch_html(
+            client,
+            "https://html.duckduckgo.com/html/",
+            timeout=4.0,
+            method="POST",
+            data={"q": query},
+        )
 
     results: list[dict[str, str]] = []
     if html:
@@ -1422,6 +1486,28 @@ RAG_TOOLS = [
 TOOLS.extend(RAG_TOOLS)
 RUNNERS["rag_search"] = _run_rag_search
 RUNNERS["rag_index"] = _run_rag_index
+
+
+async def _run_hf_search(args: dict[str, Any]) -> str:
+    import asyncio
+    from server.hf_tiny import run_query
+    result = await asyncio.to_thread(run_query, str(args.get("query", "")), int(args.get("top_k", 3)))
+    return result["answer"]
+
+
+TOOLS.append({
+    "type": "function",
+    "function": {
+        "name": "hf_search",
+        "description": "Search the local WikiText training corpus using loaded BERT-tiny weights and its matching tokenizer. Returns historical reference passages, not current web facts.",
+        "parameters": {
+            "type": "object",
+            "properties": {"query": {"type": "string"}, "top_k": {"type": "integer", "minimum": 1, "maximum": 10}},
+            "required": ["query"],
+        },
+    },
+})
+RUNNERS["hf_search"] = _run_hf_search
 
 
 

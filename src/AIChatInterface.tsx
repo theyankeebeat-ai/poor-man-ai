@@ -25,7 +25,7 @@ import {
   Sliders,
   MessageSquare
 } from 'lucide-react';
-import { streamChat, uploadFile, synthesizeTTS } from './api';
+import { API, streamChat, uploadFile, synthesizeTTS } from './api';
 import { useTheme } from './ThemeContext';
 
 export interface ChatMessage {
@@ -52,7 +52,7 @@ const INITIAL_MESSAGES: ChatMessage[] = [
   {
     id: 'msg-init',
     sender: 'system',
-    content: 'Poor Man AI Agent Initialized. Low-end Fast profile: PoorMan-Mini-1B INT4 (~0.60 GB) + Thinking Fast. Connected to 127.0.0.1:8000.',
+    content: 'Poor Man AI ready. Choose a mode and send a message to start.',
     timestamp: 'Ready'
   }
 ];
@@ -552,7 +552,9 @@ export const AIChatInterface: React.FC = () => {
         abortControllerRef.current.signal,
         (ev) => {
           if (haltRef.current) return;
-          if (ev.type === 'plan') {
+          if (ev.type === 'status') {
+            setStatusText(ev.text);
+          } else if (ev.type === 'plan') {
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantMsgId
@@ -649,13 +651,16 @@ export const AIChatInterface: React.FC = () => {
                   ...m,
                   content:
                     m.content ||
-                    `Connection error: Unable to reach backend at http://127.0.0.1:8000. Make sure the server is running (yarn dev). Error: ${err.message}`
+                    `Connection error from ${API}: ${err.message}. Please retry in a moment.`
                 }
               : m
           )
         );
       }
     } finally {
+      setMessages((prev) => prev.map((m) => m.id === assistantMsgId
+        ? { ...m, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+        : m));
       setIsGenerating(false);
       setStatusText('');
       abortControllerRef.current = null;

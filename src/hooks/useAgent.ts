@@ -98,7 +98,9 @@ export function useAgent(initial: ChatMessage[] = []) {
 
     try {
       await streamChat(text, maxSteps, ac.signal, (ev: AgentEvent) => {
-        if (ev.type === "plan") {
+        if (ev.type === "status") {
+          setLiveStatus(ev.text);
+        } else if (ev.type === "plan") {
           setLivePlan(ev.text);
           setLiveStatus("Planning…");
           patchAssistant((p) => ({ ...p, plan: ev.text }));

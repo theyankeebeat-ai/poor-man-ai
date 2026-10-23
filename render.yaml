@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: poor-man-ai
+    runtime: python
+    plan: free
+    buildCommand: pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu && pip install -r server/requirements.txt
+    startCommand: python -m uvicorn server.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: HF_STORAGE_PROVIDER
+        value: auto
+      - key: HF_NUM_THREADS
+        value: "1"
+      - key: HF_SNAPSHOT_DIR
+        value: /tmp/poor-man-ai-hf
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: SUPABASE_BUCKET
+        value: hf
+      - key: APPWRITE_ENDPOINT
+        sync: false
+      - key: APPWRITE_PROJECT_ID
+        sync: false
+      - key: APPWRITE_API_KEY
+        sync: false
+      - key: APPWRITE_BUCKET
+        value: hf

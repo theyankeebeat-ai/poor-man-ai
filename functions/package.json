@@ -1,0 +1,8 @@
+{
+  "name": "poor-man-ai-functions",
+  "private": true,
+  "main": "index.cjs",
+  "engines": { "node": "22" },
+  "scripts": { "check": "node --check index.cjs" },
+  "dependencies": { "firebase-functions": "^6.4.0" }
+}

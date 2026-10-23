@@ -1,6 +1,7 @@
 export type Role = "user" | "assistant" | "tool";
 
 export type AgentEvent =
+  | { type: "status"; text: string }
   | { type: "plan"; text: string }
   | { type: "tool"; name: string; args: Record<string, unknown> }
   | { type: "observation"; name: string; text: string }
