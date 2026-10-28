@@ -1,0 +1,10 @@
+{
+  "services": {
+    "poor-man-ai": {
+      "root": ".",
+      "framework": "vite",
+      "buildCommand": "yarn build",
+      "outputDirectory": "dist"
+    }
+  }
+}
