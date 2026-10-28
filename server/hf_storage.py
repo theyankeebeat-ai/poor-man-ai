@@ -3,12 +3,21 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 from pathlib import Path
 from urllib.parse import quote
 
 import httpx
 
 from server.backends import _appwrite, _appwrite_headers, _file_id, _supabase, _supabase_headers
+
+_BUCKET_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,35}$")
+
+
+def _storage_bucket(name: str) -> str:
+    if not _BUCKET_ID.fullmatch(name):
+        raise ValueError("Invalid bucket id")
+    return name
 
 
 def restore_snapshot(root: Path) -> dict:
@@ -24,16 +33,18 @@ def restore_snapshot(root: Path) -> dict:
                 if source == "supabase":
                     cfg = _supabase()
                     headers = _supabase_headers(cfg)
-                    base = f"{cfg['url']}/storage/v1/object/{cfg['bucket']}/"
-                    def fetch(name):
+                    def fetch(name, bucket_name):
+                        _storage_bucket(bucket_name)
+                        base = f"{cfg['url']}/storage/v1/object/{bucket_name}/"
                         return client.get(base + quote(name, safe="/"), headers=headers)
                 else:
                     cfg = _appwrite()
                     headers = _appwrite_headers(cfg)
-                    base = f"{cfg['endpoint']}/storage/buckets/{cfg['bucket']}/files/"
-                    def fetch(name):
+                    def fetch(name, bucket_name):
+                        _storage_bucket(bucket_name)
+                        base = f"{cfg['endpoint']}/storage/buckets/{bucket_name}/files/"
                         return client.get(base + _file_id(name) + "/download", headers=headers)
-                response = fetch("manifest.json")
+                response = fetch("manifest.json", cfg["bucket"])
                 response.raise_for_status()
                 entries = response.json()["files"]
                 if not entries:
@@ -48,7 +59,7 @@ def restore_snapshot(root: Path) -> dict:
                         raise ValueError("Snapshot requires SHA-256 checksums")
                     if destination.is_file() and hashlib.sha256(destination.read_bytes()).hexdigest() == checksum:
                         continue
-                    response = fetch(entry["path"])
+                    response = fetch(entry["path"], str(entry.get("bucket") or cfg["bucket"]))
                     response.raise_for_status()
                     if len(response.content) != entry["bytes"] or hashlib.sha256(response.content).hexdigest() != checksum:
                         raise ValueError("Snapshot checksum mismatch")

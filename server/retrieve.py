@@ -47,6 +47,12 @@ def rebuild_if_stale() -> None:
     _stamp = mtime
 
 
+def clear_index() -> None:
+    """Delete every FTS row. The table stays so the empty index is intentional."""
+    with _conn() as c:
+        c.execute("DELETE FROM mem")
+
+
 def search_fts(query: str, limit: int = 8) -> list[dict]:
     rebuild_if_stale()
     q = (query or "").strip()

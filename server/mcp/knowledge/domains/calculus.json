@@ -1,0 +1,58 @@
+{
+  "name": "calculus",
+  "title": "Calculus",
+  "topics": ["calculus", "derivative", "integral", "antiderivative", "chain rule", "power rule", "definite integral", "indefinite integral", "fundamental theorem"],
+  "triggers": ["calculus", "derivative", "integral", "antiderivative", "chain rule", "power rule", "definite integral", "indefinite integral", "fundamental theorem"],
+  "scope": "This card applies limits, basic derivatives, and power integrals to the function already given.",
+  "method": [
+    "Decide whether the question asks for a limit, a derivative, or an integral.",
+    "Rewrite the given expression as constants, sums, and powers before operating.",
+    "Differentiate with the power rule, the constant-multiple and sum rules, and the chain rule when there is an inside function.",
+    "For an indefinite integral of x^n with n not equal to -1, write x^(n+1)/(n+1) + C.",
+    "For a definite integral, evaluate F(b) - F(a) and treat it as net signed area.",
+    "If the function or the bounds are missing, stop and name what is missing."
+  ],
+  "formulas": [
+    {
+      "name": "Limit",
+      "expr": "lim_{x→a} f(x) = L",
+      "use": "L is the value f approaches as x approaches a, which need not equal f(a)."
+    },
+    {
+      "name": "Power rule",
+      "expr": "d/dx x^n = n x^(n-1)",
+      "use": "Differentiates a constant power of x by bringing the exponent down and reducing it by one."
+    },
+    {
+      "name": "Constant multiple and sum rules",
+      "expr": "d/dx [c f(x) + g(x)] = c f'(x) + g'(x)",
+      "use": "A constant factor comes out of the derivative, and the derivative of a sum is the sum of the derivatives."
+    },
+    {
+      "name": "Chain rule",
+      "expr": "d/dx f(g(x)) = f'(g(x)) g'(x)",
+      "use": "Differentiate the outer function, then multiply by the derivative of the inner function."
+    },
+    {
+      "name": "Power antiderivative",
+      "expr": "∫ x^n dx = x^(n+1)/(n+1) + C, n ≠ -1",
+      "use": "The antiderivative of a power uses this formula only when the exponent is not -1."
+    },
+    {
+      "name": "Definite integral",
+      "expr": "∫_a^b f(x) dx = F(b) - F(a)",
+      "use": "When F' = f, the fundamental theorem gives the net signed area from a to b."
+    }
+  ],
+  "checks": [
+    "The power rule multiplies by the old exponent and then lowers that exponent by one.",
+    "The chain rule includes the derivative of the inside function.",
+    "The power antiderivative does not apply when n = -1.",
+    "A definite integral is net signed area, so the result can be negative."
+  ],
+  "limits": [
+    "Product, quotient, and integration by parts are outside this card unless the expression reduces to the rules above.",
+    "A limit can exist when the function value at that point does not.",
+    "This card does not supply a function, exponent, or interval the user did not give."
+  ]
+}

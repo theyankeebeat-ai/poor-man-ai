@@ -52,15 +52,19 @@ def _file_id(relative: str) -> str:
     return hashlib.sha256(relative.encode("utf-8")).hexdigest()[:32]
 
 
-def _manifest() -> dict[str, Any]:
+def _manifest(primary: str = "hf") -> dict[str, Any]:
+    from server.buckets import remote_bucket
+
     items = []
     for path in _hf_files():
         relative = _rel(path)
+        data = path.read_bytes()
         items.append({
             "path": relative,
-            "bytes": path.stat().st_size,
+            "bytes": len(data),
             "file_id": _file_id(relative),
-            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            "sha256": hashlib.sha256(data).hexdigest(),
+            "bucket": remote_bucket(primary, relative),
         })
     return {
         "root": "hf",
@@ -221,48 +225,85 @@ def _upload_supabase(client: httpx.Client, cfg: dict[str, str], relative: str, d
         raise RuntimeError(f"Supabase {relative}: HTTP {response.status_code} {response.text[:180]}")
 
 
+def _ensure_named(client: httpx.Client, cfg: dict[str, str], names: list[str], kind: str) -> dict[str, dict[str, Any]]:
+    results: dict[str, dict[str, Any]] = {}
+    ensure = _ensure_appwrite_bucket if kind == "appwrite" else _ensure_supabase_bucket
+    for name in names:
+        results[name] = ensure(client, {**cfg, "bucket": name})
+    return results
+
+
 def sync_hf() -> dict[str, Any]:
-    """Copy hf/ into the Appwrite and Supabase buckets. Skips unchanged Appwrite files."""
+    """Copy hf/ into Appwrite and Supabase.
+
+    Checkpoint files stay in the primary bucket. Each directory under
+    hf/buckets/<name>/ is a separate bucket so every bucket stays under 50 MB.
+    """
+    from server.buckets import plan_storage, remote_bucket
+
     files = _hf_files()
     if not files:
         raise RuntimeError("No local hf files to synchronize")
-    manifest = _manifest()
-    payload = json.dumps(manifest).encode("utf-8")
+    appwrite = _appwrite()
+    supabase = _supabase()
+    listed = [(_rel(path), path.stat().st_size) for path in files]
+    plan_storage(listed, appwrite["bucket"])
+    if supabase["bucket"] != appwrite["bucket"]:
+        plan_storage(listed, supabase["bucket"])
+    blobs = [( _rel(path), path.read_bytes()) for path in files]
     uploaded: list[str] = []
     errors: list[str] = []
     timeout = httpx.Timeout(120.0, connect=20.0)
     with httpx.Client(timeout=timeout) as client:
-        appwrite = _appwrite()
-        supabase = _supabase()
-        appwrite_bucket = _ensure_appwrite_bucket(client, appwrite)
-        supabase_bucket = _ensure_supabase_bucket(client, supabase)
-        blobs = [( _rel(path), path.read_bytes()) for path in files]
+        app_names = sorted({remote_bucket(appwrite["bucket"], relative) for relative, _data in blobs})
+        sup_names = sorted({remote_bucket(supabase["bucket"], relative) for relative, _data in blobs})
+        app_buckets = _ensure_named(client, appwrite, app_names, "appwrite")
+        sup_buckets = _ensure_named(client, supabase, sup_names, "supabase")
+        quiet = {"Appwrite key is not set", "Supabase key is not set"}
+        for name, result in {**{f"appwrite:{key}": value for key, value in app_buckets.items()}, **{f"supabase:{key}": value for key, value in sup_buckets.items()}}.items():
+            if not result.get("ok"):
+                detail = str(result.get("detail") or "unavailable")
+                if detail not in quiet:
+                    errors.append(f"{name}: {detail}")
         for relative, data in blobs:
-            if appwrite_bucket.get("ok"):
+            app_name = remote_bucket(appwrite["bucket"], relative)
+            sup_name = remote_bucket(supabase["bucket"], relative)
+            if app_buckets.get(app_name, {}).get("ok"):
                 try:
-                    changed = _upload_appwrite(client, appwrite, relative, data)
+                    changed = _upload_appwrite(client, {**appwrite, "bucket": app_name}, relative, data)
                     if changed:
-                        uploaded.append(f"appwrite:{changed}")
+                        uploaded.append(f"appwrite:{app_name}:{changed}")
                 except Exception as exc:
                     errors.append(str(exc))
-            if supabase_bucket.get("ok"):
+            if sup_buckets.get(sup_name, {}).get("ok"):
                 try:
-                    _upload_supabase(client, supabase, relative, data)
-                    uploaded.append(f"supabase:{relative}")
+                    _upload_supabase(client, {**supabase, "bucket": sup_name}, relative, data)
+                    uploaded.append(f"supabase:{sup_name}:{relative}")
                 except Exception as exc:
                     errors.append(str(exc))
         # Publish the inventory only after all files have been uploaded successfully.
         if not errors:
-            if appwrite_bucket.get("ok"):
-                _upload_appwrite(client, appwrite, "manifest.json", payload)
-            if supabase_bucket.get("ok"):
-                _upload_supabase(client, supabase, "manifest.json", payload)
+            if app_buckets.get(appwrite["bucket"], {}).get("ok"):
+                _upload_appwrite(
+                    client,
+                    appwrite,
+                    "manifest.json",
+                    json.dumps(_manifest(appwrite["bucket"])).encode("utf-8"),
+                )
+            if sup_buckets.get(supabase["bucket"], {}).get("ok"):
+                _upload_supabase(
+                    client,
+                    supabase,
+                    "manifest.json",
+                    json.dumps(_manifest(supabase["bucket"])).encode("utf-8"),
+                )
     return {
         "local_files": len(files),
         "uploaded": len(uploaded),
         "errors": errors,
-        "appwrite": appwrite_bucket,
-        "supabase": supabase_bucket,
+        "appwrite": app_buckets.get(appwrite["bucket"], {"ok": False, "bucket": appwrite["bucket"]}),
+        "supabase": sup_buckets.get(supabase["bucket"], {"ok": False, "bucket": supabase["bucket"]}),
+        "buckets": sorted(set(app_names) | set(sup_names)),
     }
 
 
@@ -323,23 +364,10 @@ def _ping_render(client: httpx.Client) -> dict[str, Any]:
 
 
 def status() -> dict[str, Any]:
-    """Report the local ports and the three cloud backends. No secrets."""
-    timeout = httpx.Timeout(8.0, connect=5.0)
-    with httpx.Client(timeout=timeout) as client:
-        def probe(fn, cfg):
-            try:
-                return fn(client, cfg)
-            except (httpx.HTTPError, ValueError):
-                return {"ok": False, "detail": "Backend probe failed"}
-        appwrite = probe(_count_appwrite, _appwrite())
-        supabase = probe(_count_supabase, _supabase())
-        render = _ping_render(client)
-    return {
-        "local": LOCAL,
-        "render": render,
-        "appwrite": appwrite,
-        "supabase": supabase,
-    }
+    """Return the one local system. Does not contact cloud storage."""
+    from server.mesh import registry
+
+    return registry()
 
 
 if __name__ == "__main__":

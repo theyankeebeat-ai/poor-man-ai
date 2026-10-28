@@ -22,6 +22,91 @@ FINANCE_RE = re.compile(
     re.I,
 )
 
+_HOP_ENTITY_RE = re.compile(r"\b[A-Z][a-z]{3,}(?:\s+[A-Z][a-z]{3,})?\b")
+_HOP_STOP = frozenset(
+    {
+        "about",
+        "after",
+        "again",
+        "because",
+        "before",
+        "being",
+        "between",
+        "could",
+        "first",
+        "their",
+        "there",
+        "these",
+        "those",
+        "under",
+        "where",
+        "which",
+        "while",
+        "would",
+        "during",
+        "other",
+        "every",
+        "this",
+        "that",
+        "they",
+        "them",
+        "then",
+        "have",
+        "been",
+        "were",
+        "with",
+        "from",
+        "into",
+        "over",
+        "also",
+        "such",
+        "many",
+        "some",
+        "however",
+        "therefore",
+        "although",
+    }
+)
+
+
+def _hop_in_question(question: str, term: str) -> bool:
+    q = (question or "").lower()
+    t = (term or "").strip().lower()
+    if not t:
+        return True
+    return re.search(rf"\b{re.escape(t)}\b", q) is not None
+
+
+def hop_query(question: str, passage: str) -> str | None:
+    """Up to two new spans from the passage, appended to the question."""
+    question = question or ""
+    passage = passage or ""
+    picked: list[str] = []
+    seen: set[str] = set()
+
+    def take(term: str) -> None:
+        if len(picked) >= 2:
+            return
+        raw = term.strip()
+        key = raw.lower()
+        if not raw or key in seen or key in _HOP_STOP or _hop_in_question(question, raw):
+            return
+        seen.add(key)
+        picked.append(raw)
+
+    for match in _HOP_ENTITY_RE.finditer(passage):
+        take(match.group(0))
+        if len(picked) >= 2:
+            break
+    if not picked:
+        for word in re.findall(r"\b[a-z]{5,}\b", passage.lower()):
+            take(word)
+            if len(picked) >= 2:
+                break
+    if not picked:
+        return None
+    return f"{question} {' '.join(picked)}".strip()[:240] or None
+
 
 def _sse(payload: dict[str, Any]) -> str:
     import json
@@ -190,6 +275,34 @@ async def gather(
     if skip_search:
         # Media tools already produced the primary evidence — skip gap SERP noise.
         return
+
+    # One follow-up search built from the first page, then the gap block.
+    pages = [text for name, text in obs if name == "read_url"]
+    if pages:
+        q = hop_query(plan.goal, max(pages, key=len)[:1200])
+        if q and steps < max_steps and q.lower() not in {s.lower() for s in plan.search_queries}:
+            yield _sse({"type": "plan", "text": "Second search after the first page: " + q})
+            yield _sse({"type": "tool", "name": "web_search", "args": {"query": q}})
+            raw = await run_tool("web_search", {"query": q})
+            steps += 1
+            clip = raw[:8000]
+            yield _sse({"type": "observation", "name": "web_search", "text": clip})
+            yield ("web_search", clip)
+            obs.append(("web_search", clip))
+            hop_hits = parse_hits(raw)
+            hits.extend(hop_hits)
+            for h in hop_hits:
+                url = h.get("url") or ""
+                if not url.startswith("http") or url in seen_urls or steps >= max_steps:
+                    continue
+                seen_urls.add(url)
+                yield _sse({"type": "tool", "name": "read_url", "args": {"url": url}})
+                body = await run_tool("read_url", {"url": url})
+                yield _sse({"type": "observation", "name": "read_url", "text": body[:8000]})
+                yield ("read_url", body[:8000])
+                obs.append(("read_url", body[:8000]))
+                steps += 1
+                break
 
     ctx = run_hooks(
         HookCtx(

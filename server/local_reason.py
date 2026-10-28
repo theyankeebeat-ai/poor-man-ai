@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import re
 
+from server.bm25 import BM25Index
 from server.reason import Plan, Turn, parse_hits
 
 _STOP = {
@@ -220,43 +221,93 @@ def _lead_define(question: str, sents: list[str], terms: list[str]) -> str | Non
     return None
 
 
+def _mentions(sent: str, terms: list[str], entities: list[str]) -> bool:
+    if not terms and not entities:
+        return True
+    low = sent.lower()
+    if any(t in low for t in terms):
+        return True
+    return any(e.lower() in low for e in entities)
+
+
+def _block_for_question(question: str, sents: list[str]) -> str:
+    """One supported sentence for this ask. Do not borrow a sibling topic."""
+    terms = _terms(question)
+    entities = _entities(question)
+    if sents:
+        ranked = BM25Index(sents).top(question, 4)
+        for score, idx in ranked:
+            if score <= 0:
+                continue
+            sent = sents[idx]
+            if _mentions(sent, terms, entities):
+                return sent
+        scored = sorted(
+            ((_score(s, terms, entities, question), s) for s in sents),
+            key=lambda x: x[0],
+            reverse=True,
+        )
+        for n, sent in scored:
+            if n >= 2.5 and _mentions(sent, terms, entities):
+                return sent
+        defin = _lead_define(question, sents, terms)
+        if defin and _mentions(defin, terms, entities):
+            return defin
+    return f"{question.strip()} was not in the pages."
+
+
 def reason_from_observations(
     message: str,
     plan: Plan | None,
     observations: list[tuple[str, str]],
     history: list[Turn] | None = None,
 ) -> str:
-    sents = _corpus(observations)
-    terms = _terms(message)
-    entities = _entities(message)
-    scored = sorted(
-        ((_score(s, terms, entities, message), s) for s in sents),
-        key=lambda x: x[0],
-        reverse=True,
-    )
-    good = [s for n, s in scored if n >= 2.5][:4]
+    from server.local_brain import ask_parts
 
-    parts: list[str] = []
-    yn = _lead_yesno(message, sents, history)
-    if yn:
-        parts.append(yn)
-    if _COMPARE_RE.search(message):
-        lead = _lead_compare(message, sents, entities)
-        if lead:
-            parts.append(lead)
-    if not parts:
-        defin = _lead_define(message, sents, terms)
-        if defin:
-            parts.append(defin)
-    if not parts and good:
-        parts.append(good[0])
-        if len(good) > 1 and good[1][:40].lower() != good[0][:40].lower():
-            parts.append(good[1])
-    if not parts:
-        parts.append(
-            "I could not extract a supported answer from the pages (many hits were titles or unrelated sites). "
-            "Try a more specific question or an official source."
+    sents = _corpus(observations)
+    questions = ask_parts(message)
+    if len(questions) >= 2:
+        parts = [_block_for_question(q, sents) for q in questions]
+    else:
+        terms = _terms(message)
+        entities = _entities(message)
+        scored = sorted(
+            ((_score(s, terms, entities, message), s) for s in sents),
+            key=lambda x: x[0],
+            reverse=True,
         )
+        good = [s for n, s in scored if n >= 2.5][:4]
+
+        parts = []
+        yn = _lead_yesno(message, sents, history)
+        if yn:
+            parts.append(yn)
+        if _COMPARE_RE.search(message):
+            lead = _lead_compare(message, sents, entities)
+            if lead:
+                parts.append(lead)
+        if not parts:
+            ranked = BM25Index(sents).top(message, 2)
+            if ranked and ranked[0][0] > 0:
+                best = sents[ranked[0][1]]
+                parts.append(best)
+                if len(ranked) > 1 and ranked[1][0] > 0:
+                    nxt = sents[ranked[1][1]]
+                    if nxt[:40].lower() != best[:40].lower():
+                        parts.append(nxt)
+            else:
+                defin = _lead_define(message, sents, terms)
+                if defin:
+                    parts.append(defin)
+                if not parts and good:
+                    parts.append(good[0])
+                    if len(good) > 1 and good[1][:40].lower() != good[0][:40].lower():
+                        parts.append(good[1])
+        if not parts:
+            parts.append(
+                "I could not extract a supported answer from the pages (many hits were titles or unrelated sites). "
+                "Try a more specific question or an official source."
+            )
 
     body = "\n\n".join(parts)
     cites: list[str] = []

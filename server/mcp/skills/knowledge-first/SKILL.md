@@ -18,5 +18,6 @@ Call `consult_knowledge` with the user question. Apply matching playbooks:
 - debate-protocol for specialist handoffs
 - skill-learning when installing or updating skills from the web
 - media-literacy / summarize-method / writing-forms / argument-logic / epistemic-virtues for the logic package
+- a subject card in knowledge/domains when the question names that subject (optics, mechanics, algebra, trigonometry, statistics, grammar, vocabulary, psychology, coding method, web search method, conversation, communication, calculus, biology, astronomy, geology, economy, chemistry, critical thinking)
 
 Do not treat playbooks as live facts. They constrain *how* to search and answer, not *what* the weather is.

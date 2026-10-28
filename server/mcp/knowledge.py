@@ -15,6 +15,8 @@ class Pack:
     topics: list[str]
     body: str
     path: str
+    triggers: list[str] | None = None
+    domain: bool = False
 
 
 def _front(text: str) -> tuple[dict[str, str], str]:
@@ -31,9 +33,12 @@ def _front(text: str) -> tuple[dict[str, str], str]:
 
 
 def _mtime() -> float:
-    if not KNOWLEDGE_DIR.exists():
-        return 0.0
-    times = [p.stat().st_mtime for p in KNOWLEDGE_DIR.glob("*.md")]
+    times: list[float] = []
+    if KNOWLEDGE_DIR.exists():
+        times.extend(p.stat().st_mtime for p in KNOWLEDGE_DIR.glob("*.md"))
+        domain_dir = KNOWLEDGE_DIR / "domains"
+        if domain_dir.exists():
+            times.extend(p.stat().st_mtime for p in domain_dir.glob("*.json"))
     return max(times) if times else 0.0
 
 
@@ -55,17 +60,38 @@ def load_packs() -> list[Pack]:
                     path=str(md),
                 )
             )
+    from server.mcp.domains import packs as domain_packs
+
+    for raw in domain_packs():
+        out.append(
+            Pack(
+                name=raw["name"],
+                topics=raw["topics"],
+                body=raw["body"],
+                path=raw["path"],
+                triggers=raw["triggers"],
+                domain=True,
+            )
+        )
     _cache = (stamp, out)
     return out
+
+
+def _trigger_hit(query: str, trigger: str) -> bool:
+    return re.search(rf"(?<![a-z0-9]){re.escape(trigger.lower())}(?![a-z0-9])", query.lower()) is not None
 
 
 def consult(query: str, limit: int = 3) -> list[dict[str, str]]:
     terms = [w for w in re.findall(r"[a-z0-9]{3,}", (query or "").lower())]
     scored: list[tuple[int, Pack]] = []
     for p in load_packs():
-        hay = (p.name + " " + " ".join(p.topics) + " " + p.body).lower()
-        score = sum(1 for t in terms if t in hay)
-        score += 2 * sum(1 for t in p.topics if t in (query or "").lower())
+        if p.domain:
+            # Whole-word triggers only. The body must not steal unrelated questions.
+            score = 5 * sum(1 for trigger in p.triggers or [] if _trigger_hit(query or "", trigger))
+        else:
+            hay = (p.name + " " + " ".join(p.topics) + " " + p.body).lower()
+            score = sum(1 for t in terms if t in hay)
+            score += 2 * sum(1 for t in p.topics if t in (query or "").lower())
         if score:
             scored.append((score, p))
     scored.sort(key=lambda x: x[0], reverse=True)

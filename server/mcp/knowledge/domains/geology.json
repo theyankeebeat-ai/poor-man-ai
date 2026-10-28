@@ -1,0 +1,71 @@
+{
+  "name": "geology",
+  "title": "Geology",
+  "topics": [
+    "geology",
+    "geogoly",
+    "igneous",
+    "sedimentary",
+    "metamorphic",
+    "plate tectonics",
+    "mineral",
+    "plate boundary",
+    "mohs hardness",
+    "subduction zone"
+  ],
+  "triggers": [
+    "geology",
+    "geogoly",
+    "igneous",
+    "sedimentary",
+    "metamorphic",
+    "plate tectonics",
+    "mineral",
+    "plate boundary",
+    "mohs hardness",
+    "subduction zone"
+  ],
+  "scope": "Intro geology for the rock cycle, igneous, sedimentary, and metamorphic rocks, plate boundaries, and mineral versus rock.",
+  "method": [
+    "Decide whether the question is the rock cycle, a plate boundary, or mineral versus rock.",
+    "Define a mineral as one substance with a definite composition and an ordered atomic structure.",
+    "Define a rock as a solid aggregate, usually of one or more minerals, and not as a single mineral by default.",
+    "Place a rock in the cycle: igneous from cooled melt, sedimentary from compacted or cemented sediment, metamorphic from solid-state heat and pressure.",
+    "Name the plate tectonics boundary as divergent, convergent, or transform.",
+    "Match the motion: apart, together (a convergent subduction zone when one plate descends), or sliding past.",
+    "Compare the evidence you have, such as crystals, layers, foliation, or a Mohs hardness scratch, and say what is still missing."
+  ],
+  "formulas": [
+    {
+      "name": "Density",
+      "expr": "ρ = m / V",
+      "use": "Density is mass divided by volume and helps compare mineral samples when both are measured."
+    },
+    {
+      "name": "Plate rate",
+      "expr": "rate = distance / time",
+      "use": "An average plate rate is the distance a plate moves divided by the time that motion took."
+    },
+    {
+      "name": "Mineral vs rock",
+      "expr": "mineral = one substance with an ordered structure; rock = a solid aggregate of minerals",
+      "use": "Use this to keep a mineral name from being treated as a rock name."
+    },
+    {
+      "name": "Rock cycle paths",
+      "expr": "melt cools to igneous; sediment compacts to sedimentary; solid-state heat and pressure make metamorphic",
+      "use": "Name the path from the process, not from the color of the sample."
+    }
+  ],
+  "checks": [
+    "A mineral is not the same thing as a rock; many rocks contain several minerals.",
+    "Igneous, sedimentary, and metamorphic names record how the rock formed.",
+    "Divergent, convergent, and transform are three different plate-boundary motions.",
+    "Metamorphism in this card is solid-state change; melting would leave that path and can start an igneous rock."
+  ],
+  "limits": [
+    "This is classification and process, not a hand-sample or site identification by itself.",
+    "It does not give mining, blasting, drilling, or extraction steps.",
+    "Plate-boundary types are general patterns, not a local map or a hazard forecast."
+  ]
+}

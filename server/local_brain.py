@@ -17,8 +17,8 @@ from server.mcp.knowledge import consult
 from server.reason import Turn, location_from, units_from
 
 # Modes think() may return. Each has one handler — not a parallel brain.
-MODES = ("chat", "calc", "memory", "weather", "howto", "media", "research", "code")
-CHEAP = frozenset({"chat", "calc", "memory"})
+MODES = ("chat", "calc", "memory", "weather", "howto", "media", "research", "code", "domain")
+CHEAP = frozenset({"chat", "calc", "memory", "domain"})
 
 CHAT_RE = re.compile(
     r"^\s*(hi|hello|hey|yo|thanks|thank you|thx|ok|okay|cool|bye|goodbye|"
@@ -224,6 +224,10 @@ def mode_of(
         return "memory"
     if CODE_RE.search(q) or SIMPLE_PKG_RE.search(q) or intent_kind == "code":
         return "code"
+    from server.mcp.domains import match_card
+
+    if match_card(q) or match_card(raw):
+        return "domain"
     if WEATHER_RE.search(q) or intent_kind == "weather":
         return "weather"
     if MEDIA_RE.search(q) or intent_kind == "media":
@@ -249,6 +253,29 @@ _CODEISH = re.compile(
     r"endpoint|hook|component|function|class|import|async)\b",
     re.I,
 )
+_LEAD_FILLER = re.compile(r"^(?:and|then|also|plus)(?:\s+|,+\s*|$)", re.I)
+
+
+def ask_parts(message: str) -> list[str]:
+    """Split a turn into questions. A pure greeting stays; a greeting glued on does not."""
+    text = re.sub(r"\s+", " ", (message or "").strip())
+    if not text:
+        return []
+    pieces: list[str] = []
+    for raw in re.split(r"(?<=[.!?])\s+", text):
+        part = raw.strip()
+        for _ in range(3):
+            nxt = _LEAD_FILLER.sub("", part, count=1).strip()
+            if nxt == part:
+                break
+            part = nxt
+        if part:
+            pieces.append(part)
+    if not pieces:
+        return []
+    if any(not (CHAT_RE.match(p) or SOCIAL_RE.match(p)) for p in pieces):
+        pieces = [p for p in pieces if not (CHAT_RE.match(p) or SOCIAL_RE.match(p))]
+    return pieces
 
 
 def _queries(message: str, history: list[Turn], mode: str, loc: str, goal: str) -> list[str]:
@@ -259,16 +286,31 @@ def _queries(message: str, history: list[Turn], mode: str, loc: str, goal: str) 
         r"\b(read|open|visit|check|browse|summarize|what is on|inspect)\b", message, re.I
     ):
         return []
-    qs: list[str] = [goal]
-    if loc and loc.lower() not in goal.lower():
-        qs.append(f"{goal} {loc}")
-    # Geography compare only for place questions — not "A versus B" in code how-tos.
-    geo_cmp = re.search(r"\b(closer|farther|which one| or )\b", message, re.I) or (
-        re.search(r"\b(versus|\bvs\.?\b)\b", message, re.I) and not _CODEISH.search(message)
+    sport_blob = f"{message} {goal}"
+    sports = bool(SPORTS_RE.search(sport_blob))
+    howto_site = mode == "howto" and bool(
+        re.search(r"\bfastapi\b", message, re.I)
+        or re.search(r"\breact\b|usecallback|usememo", message, re.I)
+        or re.search(r"\basyncio\b|semaphore", message, re.I)
     )
-    if geo_cmp and not _CODEISH.search(message):
-        qs.append(f"{message} geography distance")
-        qs.append(f"{goal} wikipedia")
+    weather_swap = mode == "weather" and bool(loc)
+    media_yt = mode == "media" and "youtube" in message.lower()
+    # Site filters, weather, YouTube, and sports replace the list below.
+    parts = ask_parts(message)
+    multi = len(parts) >= 2 and not (sports or howto_site or weather_swap or media_yt)
+    if multi:
+        qs: list[str] = list(parts)
+    else:
+        qs = [goal]
+        if loc and loc.lower() not in goal.lower():
+            qs.append(f"{goal} {loc}")
+        # Geography compare only for place questions — not "A versus B" in code how-tos.
+        geo_cmp = re.search(r"\b(closer|farther|which one| or )\b", message, re.I) or (
+            re.search(r"\b(versus|\bvs\.?\b)\b", message, re.I) and not _CODEISH.search(message)
+        )
+        if geo_cmp and not _CODEISH.search(message):
+            qs.append(f"{message} geography distance")
+            qs.append(f"{goal} wikipedia")
     if mode == "howto":
         # Prefer official docs hosts over Medium essay scrapes.
         if re.search(r"\bfastapi\b", message, re.I):
@@ -283,8 +325,7 @@ def _queries(message: str, history: list[Turn], mode: str, loc: str, goal: str) 
         qs = [f"{loc} weather forecast", f"{loc} current conditions"]
     if mode == "media" and "youtube" in message.lower():
         qs = [message]
-    sport_blob = f"{message} {goal}"
-    if SPORTS_RE.search(sport_blob):
+    if sports:
         year = ""
         try:
             from datetime import date
@@ -305,7 +346,7 @@ def _queries(message: str, history: list[Turn], mode: str, loc: str, goal: str) 
         if k and k not in seen:
             seen.add(k)
             out.append(q.strip())
-    cap = 4 if SPORTS_RE.search(sport_blob) else 2
+    cap = 4 if sports else (3 if multi else 2)
     return out[:cap]
 
 
@@ -591,6 +632,12 @@ def cheap_answer(message: str, history: list[Turn], thought: dict[str, Any] | No
     peek = _folder_peek(message)
     if peek is not None:
         return peek
+    if not (CODE_RE.search(message) or WEATHER_RE.search(message)):
+        from server.mcp.domains import domain_reply
+
+        subject = domain_reply(message)
+        if subject is not None:
+            return subject
     from server.local_howto import local_howto_answer
 
     canned = local_howto_answer(message)

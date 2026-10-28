@@ -76,6 +76,13 @@ def read_all(include_junk: bool = False) -> list[dict]:
     return out
 
 
+def clear_all() -> dict:
+    """Truncate memory.jsonl. The empty file is the intentional store."""
+    _ensure()
+    MEMORY_PATH.write_text("", encoding="utf-8")
+    return {"cleared": True}
+
+
 def scrub_junk() -> dict:
     """Rewrite memory.jsonl without junk rows. Returns counts."""
     _ensure()

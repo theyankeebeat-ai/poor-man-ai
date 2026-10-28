@@ -1,0 +1,2000 @@
+{
+  "bucket_limit_bytes": 50000000,
+  "file_limit_bytes": 33554432,
+  "note": "Read this index, then query lookup.sqlite. Do not scan shard files to find a tensor or a passage.",
+  "buckets": [
+    {
+      "id": "dataset-telemetry",
+      "kind": "dataset",
+      "bytes": 110627,
+      "files": [
+        {
+          "path": "buckets/dataset-telemetry/cache_telemetry.json",
+          "bytes": 3864,
+          "sha256": "75ea6e1012b135037ca279dfa67cb2ddbef3872a90ded48e72d4ce24ea7371da"
+        },
+        {
+          "path": "buckets/dataset-telemetry/code_audit_telemetry.json",
+          "bytes": 60040,
+          "sha256": "93add23597dcaaa5805e76d8af0387b277750eb866c24d9953a3f382792cc483"
+        },
+        {
+          "path": "buckets/dataset-telemetry/hf_wikitext_splits.json",
+          "bytes": 808,
+          "sha256": "83bcc47bc4d656c6f542291d81483c48f863aec5b33c8ce02f0e41415acd1e8d"
+        },
+        {
+          "path": "buckets/dataset-telemetry/memory_knowledge_facts.json",
+          "bytes": 42432,
+          "sha256": "c060cd1b4372a8b0e488cf137166486100ff4658f61d35228bf0821811802769"
+        },
+        {
+          "path": "buckets/dataset-telemetry/safety_guardrails_benchmark.json",
+          "bytes": 1848,
+          "sha256": "c0f8f33e60edd27e3338d9cdda11f70da562a0ea8be3920feff2c32c08e0c336"
+        },
+        {
+          "path": "buckets/dataset-telemetry/self_learning_rules.json",
+          "bytes": 1635,
+          "sha256": "d81ff4b943a8a6e8df2c13363400d30ec2db6d6bd84d15660303c18b682262d6"
+        }
+      ]
+    },
+    {
+      "id": "dataset-wikitext-test",
+      "kind": "dataset",
+      "bytes": 1448674,
+      "files": [
+        {
+          "path": "buckets/dataset-wikitext-test/passages.jsonl",
+          "bytes": 1448674,
+          "sha256": "349b13cff80fbdd1cd7bd68979468585f6837e73475ee61166faf83a3e90fa97"
+        }
+      ]
+    },
+    {
+      "id": "dataset-wikitext-train",
+      "kind": "dataset",
+      "bytes": 12351098,
+      "files": [
+        {
+          "path": "buckets/dataset-wikitext-train/passages.jsonl",
+          "bytes": 12351098,
+          "sha256": "f20723905929ca507d9ffb68231d652bde5b63ba22dd478a1d2b02bf5fe71772"
+        }
+      ]
+    },
+    {
+      "id": "dataset-wikitext-validation",
+      "kind": "dataset",
+      "bytes": 1306087,
+      "files": [
+        {
+          "path": "buckets/dataset-wikitext-validation/passages.jsonl",
+          "bytes": 1306087,
+          "sha256": "c9b5c69f7613d6f72b89a9cfaa48adbd50ca7f747e05e0657fe9b87db39c78c1"
+        }
+      ]
+    },
+    {
+      "id": "index",
+      "kind": "index",
+      "bytes": 30586667,
+      "files": [
+        {
+          "path": "buckets/index/lookup.sqlite",
+          "bytes": 30519296,
+          "sha256": "78ba2d4a76b6d98ebb0c16b848fa789be661e183112e9f07f4959754b97345cf"
+        },
+        {
+          "path": "buckets/index/index.json",
+          "bytes": 67371
+        }
+      ]
+    },
+    {
+      "id": "knowledge-domains",
+      "kind": "knowledge",
+      "bytes": 50362,
+      "files": [
+        {
+          "path": "buckets/knowledge-domains/algebra.json",
+          "bytes": 2541,
+          "sha256": "e5d8125c82d93c905bfc0316319f3ddfd693176443ae5e3c220a65037da48538"
+        },
+        {
+          "path": "buckets/knowledge-domains/astronomy.json",
+          "bytes": 2643,
+          "sha256": "180e88db2d5dc9e05b3c3436ae039f54fa5089b780880b1b78febcdf29b8f435"
+        },
+        {
+          "path": "buckets/knowledge-domains/biology.json",
+          "bytes": 2792,
+          "sha256": "ea701bab41bae52b8a2f556497e8b80aa0f40ec0498a4f6a81217b9aa744263a"
+        },
+        {
+          "path": "buckets/knowledge-domains/calculus.json",
+          "bytes": 2877,
+          "sha256": "18e0a212ad953ca778132e6c1fede216d54ef42f4862464ac2eec36b111a89a0"
+        },
+        {
+          "path": "buckets/knowledge-domains/chemistry.json",
+          "bytes": 2836,
+          "sha256": "14013dfedc3a6b730e2ffcc972d602628468d6562288d644bf28a1c47eb1434e"
+        },
+        {
+          "path": "buckets/knowledge-domains/coding.json",
+          "bytes": 1946,
+          "sha256": "c4c04b83687d95ed0760775cbf2c9a190dc8f967c2917bf14a0479710b1e3012"
+        },
+        {
+          "path": "buckets/knowledge-domains/communication.json",
+          "bytes": 2072,
+          "sha256": "02b90885ebebcb02f5a4f418cffe153bb83ef99229a2c33eb1b8e703fdae64d5"
+        },
+        {
+          "path": "buckets/knowledge-domains/conversation.json",
+          "bytes": 2046,
+          "sha256": "df4e7b265b432d5c7a6754ddd38659dcbd761c4177fedd91cef8701750e1c10c"
+        },
+        {
+          "path": "buckets/knowledge-domains/critical-thinking.json",
+          "bytes": 3068,
+          "sha256": "110f24d1b359a015e73764e6002bfc4963c4a950cad4cb9b80169bfcda95651e"
+        },
+        {
+          "path": "buckets/knowledge-domains/economy.json",
+          "bytes": 2825,
+          "sha256": "0b86aa306a08176a577b917249d0c1435d1f9ca2844de36e81ee5a6c381601d7"
+        },
+        {
+          "path": "buckets/knowledge-domains/geology.json",
+          "bytes": 2936,
+          "sha256": "22b269672ae03116fb927ded02fc3c94f830ddd31eb789d49afaeb87c2e7bc63"
+        },
+        {
+          "path": "buckets/knowledge-domains/grammar.json",
+          "bytes": 3042,
+          "sha256": "3743c14dd232734f34886e4a54e217df5a1c0fbf62af86d17fe74c7c84b20aec"
+        },
+        {
+          "path": "buckets/knowledge-domains/mechanics.json",
+          "bytes": 3049,
+          "sha256": "d7e43c8d6f3651350885ca8e99abc269e0c0c30b3502f09199490b23305204a0"
+        },
+        {
+          "path": "buckets/knowledge-domains/optics.json",
+          "bytes": 2674,
+          "sha256": "bd7a5db89fedd3be2a7dcaa1719e40a22432d82597dfb83293b9a08e6425b059"
+        },
+        {
+          "path": "buckets/knowledge-domains/psychology.json",
+          "bytes": 2863,
+          "sha256": "f5f92f54c9132b7d9ea5d8f57b8822743e746f17b592ad5e95576230d75d58ce"
+        },
+        {
+          "path": "buckets/knowledge-domains/statistics.json",
+          "bytes": 2696,
+          "sha256": "f17b99e4ba5d9355628ebbdff72178511d08c2c030343479be1cc7b7c5ab18b6"
+        },
+        {
+          "path": "buckets/knowledge-domains/trigonometry.json",
+          "bytes": 2731,
+          "sha256": "c0e19fd6322fb91df5f1e85d63b4ab1b26df2195f9c36dde4854e8807929503d"
+        },
+        {
+          "path": "buckets/knowledge-domains/vocabulary.json",
+          "bytes": 2652,
+          "sha256": "bba1124fedf58b0d531d5d14ce2ea952c20e1d5522996599cd0aa31cddc3a5f4"
+        },
+        {
+          "path": "buckets/knowledge-domains/web-search.json",
+          "bytes": 2073,
+          "sha256": "8f0a2af4713443cfe1b60b8dc2c4f21c76c3acc7500c6c54f03f1c9b79c63f5b"
+        }
+      ]
+    },
+    {
+      "id": "parameters-decoder",
+      "kind": "parameters",
+      "bytes": 41327176,
+      "files": [
+        {
+          "path": "buckets/parameters-decoder/cls.predictions.decoder.weight-000.jsonl",
+          "bytes": 19999382,
+          "sha256": "6bae5c569781152e629503bd3d6d7a7d108ce93096156af07547edd1d9f394aa"
+        },
+        {
+          "path": "buckets/parameters-decoder/cls.predictions.decoder.weight-001.jsonl",
+          "bytes": 19999461,
+          "sha256": "9f55c67788e7fc99ba8312f1c52978408b92f2bbde0e86bf8da7fccf7481a437"
+        },
+        {
+          "path": "buckets/parameters-decoder/cls.predictions.decoder.weight-002.jsonl",
+          "bytes": 1328333,
+          "sha256": "e5f8c124db751bacac1d9262fea496ad87b388836c43d2561d6c9e14272b9ced"
+        }
+      ]
+    },
+    {
+      "id": "parameters-encoder",
+      "kind": "parameters",
+      "bytes": 4504456,
+      "files": [
+        {
+          "path": "buckets/parameters-encoder/bert.embeddings.LayerNorm.bias.json",
+          "bytes": 1309,
+          "sha256": "b01ac939108be8fa695be7b68055e68cc055504ad5b0e9227624b164f3de906b"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.embeddings.LayerNorm.weight.json",
+          "bytes": 1238,
+          "sha256": "183ca13a0c3ca87270f58975c43168b109ebfac3790c6dd09e768df54c2a0684"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.embeddings.position_embeddings.weight.json",
+          "bytes": 615110,
+          "sha256": "48e0ace29d669db0800c5f8b1f933323fa8bf0febd88faa982b8292d18203228"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.embeddings.position_ids.json",
+          "bytes": 2030,
+          "sha256": "830204c5a2dca5657227d74e5baf0be7c77ed49b3339b08aa23cb2e9d6dcb956"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.embeddings.token_type_embeddings.weight.json",
+          "bytes": 2525,
+          "sha256": "d6fcba7c0a2320871610637e3a467657809e543fa9d921ee95a0a0b99f1c3503"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.0.attention.output.dense.bias.json",
+          "bytes": 1305,
+          "sha256": "e05bd9b3c6e4c30af301d88b46f85202b24e95baeed40d71751f03d1c3b3a21c"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.0.attention.output.dense.weight.json",
+          "bytes": 154004,
+          "sha256": "a465dd8cbc6eb85e3c0b0c0d65d0d8c28942cd62d45d360e9c50f14d9fbbd110"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.0.attention.output.LayerNorm.bias.json",
+          "bytes": 1322,
+          "sha256": "228f58ecf51748323d65948645c0b168e6fe0b683fd94ba2d531abc0b14fa929"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.0.attention.output.LayerNorm.weight.json",
+          "bytes": 1249,
+          "sha256": "58aeabdd943e560caa6c3e9b1912641a38cb315e1133b550438c3c5cfb06a5e7"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.0.attention.self.key.bias.json",
+          "bytes": 1300,
+          "sha256": "c2f02962810f75d808518ee9cb88e6f4a149cfc080bb14a08eacbc47c867233f"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.0.attention.self.key.weight.json",
+          "bytes": 153935,
+          "sha256": "5d9785c3fae80247400d2e8d69e43bc9660c398e95676120d04408ce607f909b"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.0.attention.self.query.bias.json",
+          "bytes": 1298,
+          "sha256": "7a9b7c113f99b01f8b86a99cf93f009318c158d0a62bf369123c16548413ef9d"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.0.attention.self.query.weight.json",
+          "bytes": 153929,
+          "sha256": "e049cb23811ffbf108e7ecbc7756d6997179c22ee20246edcfcbe2370e0ee4a0"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.0.attention.self.value.bias.json",
+          "bytes": 1314,
+          "sha256": "14154528bd8ac7652867d64b28152ed45ab760156401d73d7f4ee0fad50c6de6"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.0.attention.self.value.weight.json",
+          "bytes": 153878,
+          "sha256": "b7d63258d7a6e9c4a937055b31243d07d1ddf13978f17cfedbd38d76cef00205"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.0.intermediate.dense.bias.json",
+          "bytes": 5011,
+          "sha256": "b71e79192e0fdf08c5a4913462ce6bfd37be31c3ba57d4e8eccbe1b98ce8caad"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.0.intermediate.dense.weight.json",
+          "bytes": 615691,
+          "sha256": "b6c68921ea976afbbeb8b0d345fb463bc5fbdc90de4627c307bcb4dd9b9c5078"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.0.output.dense.bias.json",
+          "bytes": 1306,
+          "sha256": "fc62345e2f2eadd665e135bc3bd38b63b04f04e31aa5164e73eaa662473bd4d8"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.0.output.dense.weight.json",
+          "bytes": 615496,
+          "sha256": "b57a1f926df4731996ecc191f16fee4317c7fbf24612c7791721b1a7f295819a"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.0.output.LayerNorm.bias.json",
+          "bytes": 1308,
+          "sha256": "967ccc7bb5c01f80e5d95cd8728957a5ae6c4b6d2dddb7f227ec0f8cd2caa598"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.0.output.LayerNorm.weight.json",
+          "bytes": 1244,
+          "sha256": "525144e4a00ca1e29f3dcfe1b5459e0070d4344893c305ea7f16aec266138a62"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.1.attention.output.dense.bias.json",
+          "bytes": 1310,
+          "sha256": "c7c9e24377f0c28a5516538a6221bdbe1c415ded34bc8f9b7ce82eb950f06f54"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.1.attention.output.dense.weight.json",
+          "bytes": 154019,
+          "sha256": "9781e09dfbfc5ebccbe7e77ea97a1d376941b269288c06444e02492b8488894c"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.1.attention.output.LayerNorm.bias.json",
+          "bytes": 1312,
+          "sha256": "b9896bbc8b352a34a855fc22a2451d0603dacc624e2701e60fb245af82b350d0"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.1.attention.output.LayerNorm.weight.json",
+          "bytes": 1261,
+          "sha256": "89bb4fb5bcca09733df001f1dc4503ab3c100dafde74858e700c69966d87c2cf"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.1.attention.self.key.bias.json",
+          "bytes": 1300,
+          "sha256": "8ae8d9583673d5c690dbff48c67986a203342a749e4b6876a4fbba92060f0d86"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.1.attention.self.key.weight.json",
+          "bytes": 153985,
+          "sha256": "539d969b4270586f35583a75bda8d805dbb141bf2a007dd5e5d81fbf4787ad8b"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.1.attention.self.query.bias.json",
+          "bytes": 1315,
+          "sha256": "a9d569aa437f3b3e59e42cd8f58556ee13779ccd234331467137542dc338fe29"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.1.attention.self.query.weight.json",
+          "bytes": 153963,
+          "sha256": "becd3c77a3546808b83baf0c67fe5ca71c27f44aa6436e98e84c27b56f9c2c81"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.1.attention.self.value.bias.json",
+          "bytes": 1314,
+          "sha256": "7fb5d70d39856ff3210d29981c00f79d54711d3227a513fa30c6d6512e84ac87"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.1.attention.self.value.weight.json",
+          "bytes": 153849,
+          "sha256": "f5605eb1b612c77e29f111bb253bd440c152e383a2a7b9cd8fc4c1c6c14363b9"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.1.intermediate.dense.bias.json",
+          "bytes": 5025,
+          "sha256": "6f00165e516380c9d3bd7d8da2b1658e1c2e02f58e33f639dfdd79929fa6cfeb"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.1.intermediate.dense.weight.json",
+          "bytes": 615714,
+          "sha256": "28e65237f672a8cf884667b132c93c90fe1c5d9b21d592bcb71617d2cce834c1"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.1.output.dense.bias.json",
+          "bytes": 1310,
+          "sha256": "4079f547fc443896fff371ab6a04fd072c979edde3ca707a209b468e963562f3"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.1.output.dense.weight.json",
+          "bytes": 615386,
+          "sha256": "414e4f0cc17c9f0c09f3d2d7dc1e8d2d979d6cb456528a143d0086c5fa5ce283"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.1.output.LayerNorm.bias.json",
+          "bytes": 1317,
+          "sha256": "1fb686c98d4edf83f62c000c4e4ea1545ead35ae3f5bff57462eaa209277f362"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.encoder.layer.1.output.LayerNorm.weight.json",
+          "bytes": 1255,
+          "sha256": "10f457707908df6d4c8e1175271a60625f0769d8810dafbf8520f69707121ebc"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.pooler.dense.bias.json",
+          "bytes": 1283,
+          "sha256": "6443c2795d9d49787ca8cf383236c42aed739a52500de2d2d0e220e55cc0bc1f"
+        },
+        {
+          "path": "buckets/parameters-encoder/bert.pooler.dense.weight.json",
+          "bytes": 153736,
+          "sha256": "3115276f82d5224341ac0aae366905a88884ef4d18da65bfc70101c8c6b9a34e"
+        }
+      ]
+    },
+    {
+      "id": "parameters-mlm-head",
+      "kind": "parameters",
+      "bytes": 759775,
+      "files": [
+        {
+          "path": "buckets/parameters-mlm-head/cls.predictions.bias.json",
+          "bytes": 299366,
+          "sha256": "3ab6c453c6715d51f6f3a6196bd714888f7ce530f7ab8d13b6e7da43cba24950"
+        },
+        {
+          "path": "buckets/parameters-mlm-head/cls.predictions.decoder.bias.json",
+          "bytes": 299374,
+          "sha256": "d1bd943047b9c2d15fb34daa2884124979a12e78e31a241e3838171323ab017e"
+        },
+        {
+          "path": "buckets/parameters-mlm-head/cls.predictions.transform.dense.bias.json",
+          "bytes": 1281,
+          "sha256": "7251c3f49c4e3590c7a7eb07b0dca40999bba088e139d2951ef12ceae1e4f7a9"
+        },
+        {
+          "path": "buckets/parameters-mlm-head/cls.predictions.transform.dense.weight.json",
+          "bytes": 154595,
+          "sha256": "f2308417e7c1e4dede9adc0ac0f5b7d61d2d2df98d69d0d7e971e550fac89813"
+        },
+        {
+          "path": "buckets/parameters-mlm-head/cls.predictions.transform.LayerNorm.bias.json",
+          "bytes": 1317,
+          "sha256": "3978378d12407fc471b092a07ce415e824e40e16b7a168f50c88a40a1b707b8d"
+        },
+        {
+          "path": "buckets/parameters-mlm-head/cls.predictions.transform.LayerNorm.weight.json",
+          "bytes": 1243,
+          "sha256": "f410193102649ef8630056bd00941ccb4bda15022a948c0c7db837803bed41f6"
+        },
+        {
+          "path": "buckets/parameters-mlm-head/cls.seq_relationship.bias.json",
+          "bytes": 104,
+          "sha256": "828d893f2c2c0f5a302d67a36c312a8fa7370d43e855a21b670d3eeceb887d81"
+        },
+        {
+          "path": "buckets/parameters-mlm-head/cls.seq_relationship.weight.json",
+          "bytes": 2495,
+          "sha256": "080762ab9b0da7ad3cecb99667172b5ba8448ea321cfd7e9d297fad942b9af7d"
+        }
+      ]
+    },
+    {
+      "id": "parameters-router",
+      "kind": "parameters",
+      "bytes": 3800,
+      "files": [
+        {
+          "path": "buckets/parameters-router/hf_bert_tiny_model.json",
+          "bytes": 401,
+          "sha256": "ad6da0952f2d2d4685983416647e0da0f08422d165af5c03227585819c595a0c"
+        },
+        {
+          "path": "buckets/parameters-router/hf_bert_tiny_parameters.json",
+          "bytes": 748,
+          "sha256": "73b5a4649c3f461e6cf662e4d36643968c67fa53dfbe68b82fa3b88d96f37296"
+        },
+        {
+          "path": "buckets/parameters-router/neuron_routing_topology.json",
+          "bytes": 2651,
+          "sha256": "8ee1b6e569d11f6b8fe1cc0fe7cd5c6c9323c58a9f69341d5ed56cfb58b710bc"
+        }
+      ]
+    },
+    {
+      "id": "parameters-word-embeddings",
+      "kind": "parameters",
+      "bytes": 41327176,
+      "files": [
+        {
+          "path": "buckets/parameters-word-embeddings/bert.embeddings.word_embeddings.weight-000.jsonl",
+          "bytes": 19999382,
+          "sha256": "6bae5c569781152e629503bd3d6d7a7d108ce93096156af07547edd1d9f394aa"
+        },
+        {
+          "path": "buckets/parameters-word-embeddings/bert.embeddings.word_embeddings.weight-001.jsonl",
+          "bytes": 19999461,
+          "sha256": "9f55c67788e7fc99ba8312f1c52978408b92f2bbde0e86bf8da7fccf7481a437"
+        },
+        {
+          "path": "buckets/parameters-word-embeddings/bert.embeddings.word_embeddings.weight-002.jsonl",
+          "bytes": 1328333,
+          "sha256": "e5f8c124db751bacac1d9262fea496ad87b388836c43d2561d6c9e14272b9ced"
+        }
+      ]
+    },
+    {
+      "id": "tokenizer",
+      "kind": "tokenizer",
+      "bytes": 1838068,
+      "files": [
+        {
+          "path": "buckets/tokenizer/vocab.jsonl",
+          "bytes": 1838068,
+          "sha256": "0069ff3a657450c13966126864ba8479167c41274f11a43e9ffdaf4cbd9e205a"
+        }
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "id": "bert.embeddings.position_ids",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.embeddings.position_ids.json",
+      "shape": [
+        1,
+        512
+      ],
+      "rows": 1,
+      "bytes": 2030,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.embeddings.position_ids.json",
+          "bucket": "parameters-encoder",
+          "bytes": 2030
+        }
+      ]
+    },
+    {
+      "id": "bert.embeddings.word_embeddings.weight",
+      "kind": "parameters",
+      "bucket": "parameters-word-embeddings",
+      "shape": [
+        30522,
+        128
+      ],
+      "rows": 30522,
+      "bytes": 41327176,
+      "summary": "Search copy of one checkpoint matrix. Row i is the stored row. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-word-embeddings/bert.embeddings.word_embeddings.weight-000.jsonl",
+          "bucket": "parameters-word-embeddings",
+          "row_start": 0,
+          "row_end": 14720,
+          "bytes": 19999382
+        },
+        {
+          "file": "buckets/parameters-word-embeddings/bert.embeddings.word_embeddings.weight-001.jsonl",
+          "bucket": "parameters-word-embeddings",
+          "row_start": 14720,
+          "row_end": 29544,
+          "bytes": 19999461
+        },
+        {
+          "file": "buckets/parameters-word-embeddings/bert.embeddings.word_embeddings.weight-002.jsonl",
+          "bucket": "parameters-word-embeddings",
+          "row_start": 29544,
+          "row_end": 30522,
+          "bytes": 1328333
+        }
+      ]
+    },
+    {
+      "id": "bert.embeddings.position_embeddings.weight",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.embeddings.position_embeddings.weight.json",
+      "shape": [
+        512,
+        128
+      ],
+      "rows": 512,
+      "bytes": 615110,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.embeddings.position_embeddings.weight.json",
+          "bucket": "parameters-encoder",
+          "bytes": 615110
+        }
+      ]
+    },
+    {
+      "id": "bert.embeddings.token_type_embeddings.weight",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.embeddings.token_type_embeddings.weight.json",
+      "shape": [
+        2,
+        128
+      ],
+      "rows": 2,
+      "bytes": 2525,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.embeddings.token_type_embeddings.weight.json",
+          "bucket": "parameters-encoder",
+          "bytes": 2525
+        }
+      ]
+    },
+    {
+      "id": "bert.embeddings.LayerNorm.weight",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.embeddings.LayerNorm.weight.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1238,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.embeddings.LayerNorm.weight.json",
+          "bucket": "parameters-encoder",
+          "bytes": 1238
+        }
+      ]
+    },
+    {
+      "id": "bert.embeddings.LayerNorm.bias",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.embeddings.LayerNorm.bias.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1309,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.embeddings.LayerNorm.bias.json",
+          "bucket": "parameters-encoder",
+          "bytes": 1309
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.0.attention.self.query.weight",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.0.attention.self.query.weight.json",
+      "shape": [
+        128,
+        128
+      ],
+      "rows": 128,
+      "bytes": 153929,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.0.attention.self.query.weight.json",
+          "bucket": "parameters-encoder",
+          "bytes": 153929
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.0.attention.self.query.bias",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.0.attention.self.query.bias.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1298,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.0.attention.self.query.bias.json",
+          "bucket": "parameters-encoder",
+          "bytes": 1298
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.0.attention.self.key.weight",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.0.attention.self.key.weight.json",
+      "shape": [
+        128,
+        128
+      ],
+      "rows": 128,
+      "bytes": 153935,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.0.attention.self.key.weight.json",
+          "bucket": "parameters-encoder",
+          "bytes": 153935
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.0.attention.self.key.bias",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.0.attention.self.key.bias.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1300,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.0.attention.self.key.bias.json",
+          "bucket": "parameters-encoder",
+          "bytes": 1300
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.0.attention.self.value.weight",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.0.attention.self.value.weight.json",
+      "shape": [
+        128,
+        128
+      ],
+      "rows": 128,
+      "bytes": 153878,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.0.attention.self.value.weight.json",
+          "bucket": "parameters-encoder",
+          "bytes": 153878
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.0.attention.self.value.bias",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.0.attention.self.value.bias.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1314,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.0.attention.self.value.bias.json",
+          "bucket": "parameters-encoder",
+          "bytes": 1314
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.0.attention.output.dense.weight",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.0.attention.output.dense.weight.json",
+      "shape": [
+        128,
+        128
+      ],
+      "rows": 128,
+      "bytes": 154004,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.0.attention.output.dense.weight.json",
+          "bucket": "parameters-encoder",
+          "bytes": 154004
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.0.attention.output.dense.bias",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.0.attention.output.dense.bias.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1305,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.0.attention.output.dense.bias.json",
+          "bucket": "parameters-encoder",
+          "bytes": 1305
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.0.attention.output.LayerNorm.weight",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.0.attention.output.LayerNorm.weight.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1249,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.0.attention.output.LayerNorm.weight.json",
+          "bucket": "parameters-encoder",
+          "bytes": 1249
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.0.attention.output.LayerNorm.bias",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.0.attention.output.LayerNorm.bias.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1322,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.0.attention.output.LayerNorm.bias.json",
+          "bucket": "parameters-encoder",
+          "bytes": 1322
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.0.intermediate.dense.weight",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.0.intermediate.dense.weight.json",
+      "shape": [
+        512,
+        128
+      ],
+      "rows": 512,
+      "bytes": 615691,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.0.intermediate.dense.weight.json",
+          "bucket": "parameters-encoder",
+          "bytes": 615691
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.0.intermediate.dense.bias",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.0.intermediate.dense.bias.json",
+      "shape": [
+        512
+      ],
+      "rows": 512,
+      "bytes": 5011,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.0.intermediate.dense.bias.json",
+          "bucket": "parameters-encoder",
+          "bytes": 5011
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.0.output.dense.weight",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.0.output.dense.weight.json",
+      "shape": [
+        128,
+        512
+      ],
+      "rows": 128,
+      "bytes": 615496,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.0.output.dense.weight.json",
+          "bucket": "parameters-encoder",
+          "bytes": 615496
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.0.output.dense.bias",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.0.output.dense.bias.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1306,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.0.output.dense.bias.json",
+          "bucket": "parameters-encoder",
+          "bytes": 1306
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.0.output.LayerNorm.weight",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.0.output.LayerNorm.weight.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1244,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.0.output.LayerNorm.weight.json",
+          "bucket": "parameters-encoder",
+          "bytes": 1244
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.0.output.LayerNorm.bias",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.0.output.LayerNorm.bias.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1308,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.0.output.LayerNorm.bias.json",
+          "bucket": "parameters-encoder",
+          "bytes": 1308
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.1.attention.self.query.weight",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.1.attention.self.query.weight.json",
+      "shape": [
+        128,
+        128
+      ],
+      "rows": 128,
+      "bytes": 153963,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.1.attention.self.query.weight.json",
+          "bucket": "parameters-encoder",
+          "bytes": 153963
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.1.attention.self.query.bias",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.1.attention.self.query.bias.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1315,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.1.attention.self.query.bias.json",
+          "bucket": "parameters-encoder",
+          "bytes": 1315
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.1.attention.self.key.weight",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.1.attention.self.key.weight.json",
+      "shape": [
+        128,
+        128
+      ],
+      "rows": 128,
+      "bytes": 153985,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.1.attention.self.key.weight.json",
+          "bucket": "parameters-encoder",
+          "bytes": 153985
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.1.attention.self.key.bias",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.1.attention.self.key.bias.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1300,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.1.attention.self.key.bias.json",
+          "bucket": "parameters-encoder",
+          "bytes": 1300
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.1.attention.self.value.weight",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.1.attention.self.value.weight.json",
+      "shape": [
+        128,
+        128
+      ],
+      "rows": 128,
+      "bytes": 153849,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.1.attention.self.value.weight.json",
+          "bucket": "parameters-encoder",
+          "bytes": 153849
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.1.attention.self.value.bias",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.1.attention.self.value.bias.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1314,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.1.attention.self.value.bias.json",
+          "bucket": "parameters-encoder",
+          "bytes": 1314
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.1.attention.output.dense.weight",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.1.attention.output.dense.weight.json",
+      "shape": [
+        128,
+        128
+      ],
+      "rows": 128,
+      "bytes": 154019,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.1.attention.output.dense.weight.json",
+          "bucket": "parameters-encoder",
+          "bytes": 154019
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.1.attention.output.dense.bias",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.1.attention.output.dense.bias.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1310,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.1.attention.output.dense.bias.json",
+          "bucket": "parameters-encoder",
+          "bytes": 1310
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.1.attention.output.LayerNorm.weight",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.1.attention.output.LayerNorm.weight.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1261,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.1.attention.output.LayerNorm.weight.json",
+          "bucket": "parameters-encoder",
+          "bytes": 1261
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.1.attention.output.LayerNorm.bias",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.1.attention.output.LayerNorm.bias.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1312,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.1.attention.output.LayerNorm.bias.json",
+          "bucket": "parameters-encoder",
+          "bytes": 1312
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.1.intermediate.dense.weight",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.1.intermediate.dense.weight.json",
+      "shape": [
+        512,
+        128
+      ],
+      "rows": 512,
+      "bytes": 615714,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.1.intermediate.dense.weight.json",
+          "bucket": "parameters-encoder",
+          "bytes": 615714
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.1.intermediate.dense.bias",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.1.intermediate.dense.bias.json",
+      "shape": [
+        512
+      ],
+      "rows": 512,
+      "bytes": 5025,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.1.intermediate.dense.bias.json",
+          "bucket": "parameters-encoder",
+          "bytes": 5025
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.1.output.dense.weight",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.1.output.dense.weight.json",
+      "shape": [
+        128,
+        512
+      ],
+      "rows": 128,
+      "bytes": 615386,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.1.output.dense.weight.json",
+          "bucket": "parameters-encoder",
+          "bytes": 615386
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.1.output.dense.bias",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.1.output.dense.bias.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1310,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.1.output.dense.bias.json",
+          "bucket": "parameters-encoder",
+          "bytes": 1310
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.1.output.LayerNorm.weight",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.1.output.LayerNorm.weight.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1255,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.1.output.LayerNorm.weight.json",
+          "bucket": "parameters-encoder",
+          "bytes": 1255
+        }
+      ]
+    },
+    {
+      "id": "bert.encoder.layer.1.output.LayerNorm.bias",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.encoder.layer.1.output.LayerNorm.bias.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1317,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.encoder.layer.1.output.LayerNorm.bias.json",
+          "bucket": "parameters-encoder",
+          "bytes": 1317
+        }
+      ]
+    },
+    {
+      "id": "bert.pooler.dense.weight",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.pooler.dense.weight.json",
+      "shape": [
+        128,
+        128
+      ],
+      "rows": 128,
+      "bytes": 153736,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.pooler.dense.weight.json",
+          "bucket": "parameters-encoder",
+          "bytes": 153736
+        }
+      ]
+    },
+    {
+      "id": "bert.pooler.dense.bias",
+      "kind": "parameters",
+      "bucket": "parameters-encoder",
+      "file": "buckets/parameters-encoder/bert.pooler.dense.bias.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1283,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-encoder/bert.pooler.dense.bias.json",
+          "bucket": "parameters-encoder",
+          "bytes": 1283
+        }
+      ]
+    },
+    {
+      "id": "cls.predictions.bias",
+      "kind": "parameters",
+      "bucket": "parameters-mlm-head",
+      "file": "buckets/parameters-mlm-head/cls.predictions.bias.json",
+      "shape": [
+        30522
+      ],
+      "rows": 30522,
+      "bytes": 299366,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-mlm-head/cls.predictions.bias.json",
+          "bucket": "parameters-mlm-head",
+          "bytes": 299366
+        }
+      ]
+    },
+    {
+      "id": "cls.predictions.transform.dense.weight",
+      "kind": "parameters",
+      "bucket": "parameters-mlm-head",
+      "file": "buckets/parameters-mlm-head/cls.predictions.transform.dense.weight.json",
+      "shape": [
+        128,
+        128
+      ],
+      "rows": 128,
+      "bytes": 154595,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-mlm-head/cls.predictions.transform.dense.weight.json",
+          "bucket": "parameters-mlm-head",
+          "bytes": 154595
+        }
+      ]
+    },
+    {
+      "id": "cls.predictions.transform.dense.bias",
+      "kind": "parameters",
+      "bucket": "parameters-mlm-head",
+      "file": "buckets/parameters-mlm-head/cls.predictions.transform.dense.bias.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1281,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-mlm-head/cls.predictions.transform.dense.bias.json",
+          "bucket": "parameters-mlm-head",
+          "bytes": 1281
+        }
+      ]
+    },
+    {
+      "id": "cls.predictions.transform.LayerNorm.weight",
+      "kind": "parameters",
+      "bucket": "parameters-mlm-head",
+      "file": "buckets/parameters-mlm-head/cls.predictions.transform.LayerNorm.weight.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1243,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-mlm-head/cls.predictions.transform.LayerNorm.weight.json",
+          "bucket": "parameters-mlm-head",
+          "bytes": 1243
+        }
+      ]
+    },
+    {
+      "id": "cls.predictions.transform.LayerNorm.bias",
+      "kind": "parameters",
+      "bucket": "parameters-mlm-head",
+      "file": "buckets/parameters-mlm-head/cls.predictions.transform.LayerNorm.bias.json",
+      "shape": [
+        128
+      ],
+      "rows": 128,
+      "bytes": 1317,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-mlm-head/cls.predictions.transform.LayerNorm.bias.json",
+          "bucket": "parameters-mlm-head",
+          "bytes": 1317
+        }
+      ]
+    },
+    {
+      "id": "cls.predictions.decoder.weight",
+      "kind": "parameters",
+      "bucket": "parameters-decoder",
+      "shape": [
+        30522,
+        128
+      ],
+      "rows": 30522,
+      "bytes": 41327176,
+      "summary": "Search copy of one checkpoint matrix. Row i is the stored row. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-decoder/cls.predictions.decoder.weight-000.jsonl",
+          "bucket": "parameters-decoder",
+          "row_start": 0,
+          "row_end": 14720,
+          "bytes": 19999382
+        },
+        {
+          "file": "buckets/parameters-decoder/cls.predictions.decoder.weight-001.jsonl",
+          "bucket": "parameters-decoder",
+          "row_start": 14720,
+          "row_end": 29544,
+          "bytes": 19999461
+        },
+        {
+          "file": "buckets/parameters-decoder/cls.predictions.decoder.weight-002.jsonl",
+          "bucket": "parameters-decoder",
+          "row_start": 29544,
+          "row_end": 30522,
+          "bytes": 1328333
+        }
+      ]
+    },
+    {
+      "id": "cls.predictions.decoder.bias",
+      "kind": "parameters",
+      "bucket": "parameters-mlm-head",
+      "file": "buckets/parameters-mlm-head/cls.predictions.decoder.bias.json",
+      "shape": [
+        30522
+      ],
+      "rows": 30522,
+      "bytes": 299374,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-mlm-head/cls.predictions.decoder.bias.json",
+          "bucket": "parameters-mlm-head",
+          "bytes": 299374
+        }
+      ]
+    },
+    {
+      "id": "cls.seq_relationship.weight",
+      "kind": "parameters",
+      "bucket": "parameters-mlm-head",
+      "file": "buckets/parameters-mlm-head/cls.seq_relationship.weight.json",
+      "shape": [
+        2,
+        128
+      ],
+      "rows": 2,
+      "bytes": 2495,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-mlm-head/cls.seq_relationship.weight.json",
+          "bucket": "parameters-mlm-head",
+          "bytes": 2495
+        }
+      ]
+    },
+    {
+      "id": "cls.seq_relationship.bias",
+      "kind": "parameters",
+      "bucket": "parameters-mlm-head",
+      "file": "buckets/parameters-mlm-head/cls.seq_relationship.bias.json",
+      "shape": [
+        2
+      ],
+      "rows": 2,
+      "bytes": 104,
+      "summary": "Search copy of one checkpoint tensor. The model still loads pytorch_model.bin.",
+      "shards": [
+        {
+          "file": "buckets/parameters-mlm-head/cls.seq_relationship.bias.json",
+          "bucket": "parameters-mlm-head",
+          "bytes": 104
+        }
+      ]
+    },
+    {
+      "id": "wikitext-2-raw-v1-train",
+      "kind": "dataset",
+      "bucket": "dataset-wikitext-train",
+      "rows": 36718,
+      "indexed_rows": 16930,
+      "bytes": 12351098,
+      "summary": "Salesforce WikiText-2 raw v1 train split. Passages of 40 characters or more are in the search index.",
+      "shards": [
+        {
+          "file": "buckets/dataset-wikitext-train/passages.jsonl",
+          "bucket": "dataset-wikitext-train",
+          "bytes": 12351098
+        }
+      ]
+    },
+    {
+      "id": "wikitext-2-raw-v1-validation",
+      "kind": "dataset",
+      "bucket": "dataset-wikitext-validation",
+      "rows": 3760,
+      "indexed_rows": 1796,
+      "bytes": 1306087,
+      "summary": "Salesforce WikiText-2 raw v1 validation split. Passages of 40 characters or more are in the search index.",
+      "shards": [
+        {
+          "file": "buckets/dataset-wikitext-validation/passages.jsonl",
+          "bucket": "dataset-wikitext-validation",
+          "bytes": 1306087
+        }
+      ]
+    },
+    {
+      "id": "wikitext-2-raw-v1-test",
+      "kind": "dataset",
+      "bucket": "dataset-wikitext-test",
+      "rows": 4358,
+      "indexed_rows": 2043,
+      "bytes": 1448674,
+      "summary": "Salesforce WikiText-2 raw v1 test split. Passages of 40 characters or more are in the search index.",
+      "shards": [
+        {
+          "file": "buckets/dataset-wikitext-test/passages.jsonl",
+          "bucket": "dataset-wikitext-test",
+          "bytes": 1448674
+        }
+      ]
+    },
+    {
+      "id": "bert-tiny-vocab",
+      "kind": "tokenizer",
+      "bucket": "tokenizer",
+      "rows": 30522,
+      "bytes": 1838068,
+      "summary": "WordPiece vocab for prajjwal1/bert-tiny. token_id matches the embedding row.",
+      "shards": [
+        {
+          "file": "buckets/tokenizer/vocab.jsonl",
+          "bucket": "tokenizer",
+          "bytes": 1838068
+        }
+      ]
+    },
+    {
+      "id": "cache_telemetry",
+      "kind": "dataset",
+      "bucket": "dataset-telemetry",
+      "file": "buckets/dataset-telemetry/cache_telemetry.json",
+      "rows": 21,
+      "bytes": 3864,
+      "summary": "JSON copy of cache_telemetry.csv.",
+      "shards": [
+        {
+          "file": "buckets/dataset-telemetry/cache_telemetry.json",
+          "bucket": "dataset-telemetry",
+          "bytes": 3864
+        }
+      ]
+    },
+    {
+      "id": "code_audit_telemetry",
+      "kind": "dataset",
+      "bucket": "dataset-telemetry",
+      "file": "buckets/dataset-telemetry/code_audit_telemetry.json",
+      "rows": 267,
+      "bytes": 60040,
+      "summary": "JSON copy of code_audit_telemetry.jsonl.",
+      "shards": [
+        {
+          "file": "buckets/dataset-telemetry/code_audit_telemetry.json",
+          "bucket": "dataset-telemetry",
+          "bytes": 60040
+        }
+      ]
+    },
+    {
+      "id": "hf_bert_tiny_model",
+      "kind": "parameters",
+      "bucket": "parameters-router",
+      "file": "buckets/parameters-router/hf_bert_tiny_model.json",
+      "rows": 1,
+      "bytes": 401,
+      "summary": "JSON copy of hf_bert_tiny_model.csv.",
+      "shards": [
+        {
+          "file": "buckets/parameters-router/hf_bert_tiny_model.json",
+          "bucket": "parameters-router",
+          "bytes": 401
+        }
+      ]
+    },
+    {
+      "id": "hf_bert_tiny_parameters",
+      "kind": "parameters",
+      "bucket": "parameters-router",
+      "file": "buckets/parameters-router/hf_bert_tiny_parameters.json",
+      "rows": 6,
+      "bytes": 748,
+      "summary": "JSON copy of hf_bert_tiny_parameters.csv.",
+      "shards": [
+        {
+          "file": "buckets/parameters-router/hf_bert_tiny_parameters.json",
+          "bucket": "parameters-router",
+          "bytes": 748
+        }
+      ]
+    },
+    {
+      "id": "hf_wikitext_splits",
+      "kind": "dataset",
+      "bucket": "dataset-telemetry",
+      "file": "buckets/dataset-telemetry/hf_wikitext_splits.json",
+      "rows": 3,
+      "bytes": 808,
+      "summary": "JSON copy of hf_wikitext_splits.csv.",
+      "shards": [
+        {
+          "file": "buckets/dataset-telemetry/hf_wikitext_splits.json",
+          "bucket": "dataset-telemetry",
+          "bytes": 808
+        }
+      ]
+    },
+    {
+      "id": "memory_knowledge_facts",
+      "kind": "dataset",
+      "bucket": "dataset-telemetry",
+      "file": "buckets/dataset-telemetry/memory_knowledge_facts.json",
+      "rows": 90,
+      "bytes": 42432,
+      "summary": "JSON copy of memory_knowledge_facts.jsonl.",
+      "shards": [
+        {
+          "file": "buckets/dataset-telemetry/memory_knowledge_facts.json",
+          "bucket": "dataset-telemetry",
+          "bytes": 42432
+        }
+      ]
+    },
+    {
+      "id": "neuron_routing_topology",
+      "kind": "parameters",
+      "bucket": "parameters-router",
+      "file": "buckets/parameters-router/neuron_routing_topology.json",
+      "rows": 14,
+      "bytes": 2651,
+      "summary": "JSON copy of neuron_routing_topology.csv.",
+      "shards": [
+        {
+          "file": "buckets/parameters-router/neuron_routing_topology.json",
+          "bucket": "parameters-router",
+          "bytes": 2651
+        }
+      ]
+    },
+    {
+      "id": "safety_guardrails_benchmark",
+      "kind": "dataset",
+      "bucket": "dataset-telemetry",
+      "file": "buckets/dataset-telemetry/safety_guardrails_benchmark.json",
+      "rows": 12,
+      "bytes": 1848,
+      "summary": "JSON copy of safety_guardrails_benchmark.csv.",
+      "shards": [
+        {
+          "file": "buckets/dataset-telemetry/safety_guardrails_benchmark.json",
+          "bucket": "dataset-telemetry",
+          "bytes": 1848
+        }
+      ]
+    },
+    {
+      "id": "self_learning_rules",
+      "kind": "dataset",
+      "bucket": "dataset-telemetry",
+      "file": "buckets/dataset-telemetry/self_learning_rules.json",
+      "rows": 2,
+      "bytes": 1635,
+      "summary": "JSON copy of self_learning_rules.jsonl.",
+      "shards": [
+        {
+          "file": "buckets/dataset-telemetry/self_learning_rules.json",
+          "bucket": "dataset-telemetry",
+          "bytes": 1635
+        }
+      ]
+    },
+    {
+      "id": "domain-algebra",
+      "kind": "knowledge",
+      "bucket": "knowledge-domains",
+      "file": "buckets/knowledge-domains/algebra.json",
+      "bytes": 2541,
+      "summary": "This card solves linear, system, exponent, and quadratic questions from the coefficients and points already given.",
+      "shards": [
+        {
+          "file": "buckets/knowledge-domains/algebra.json",
+          "bucket": "knowledge-domains",
+          "bytes": 2541
+        }
+      ]
+    },
+    {
+      "id": "domain-astronomy",
+      "kind": "knowledge",
+      "bucket": "knowledge-domains",
+      "file": "buckets/knowledge-domains/astronomy.json",
+      "bytes": 2643,
+      "summary": "Intro astronomy for orbits, light-year distances, galaxies, and redshift as a wavelength shift.",
+      "shards": [
+        {
+          "file": "buckets/knowledge-domains/astronomy.json",
+          "bucket": "knowledge-domains",
+          "bytes": 2643
+        }
+      ]
+    },
+    {
+      "id": "domain-biology",
+      "kind": "knowledge",
+      "bucket": "knowledge-domains",
+      "file": "buckets/knowledge-domains/biology.json",
+      "bytes": 2792,
+      "summary": "Intro textbook biology for how living things are organized, divide, capture energy, pass on traits, and change by natural selection.",
+      "shards": [
+        {
+          "file": "buckets/knowledge-domains/biology.json",
+          "bucket": "knowledge-domains",
+          "bytes": 2792
+        }
+      ]
+    },
+    {
+      "id": "domain-calculus",
+      "kind": "knowledge",
+      "bucket": "knowledge-domains",
+      "file": "buckets/knowledge-domains/calculus.json",
+      "bytes": 2877,
+      "summary": "This card applies limits, basic derivatives, and power integrals to the function already given.",
+      "shards": [
+        {
+          "file": "buckets/knowledge-domains/calculus.json",
+          "bucket": "knowledge-domains",
+          "bytes": 2877
+        }
+      ]
+    },
+    {
+      "id": "domain-chemistry",
+      "kind": "knowledge",
+      "bucket": "knowledge-domains",
+      "file": "buckets/knowledge-domains/chemistry.json",
+      "bytes": 2836,
+      "summary": "Intro chemistry for conservation of mass, molar mass, bond type, the ideal gas law, and the pH scale.",
+      "shards": [
+        {
+          "file": "buckets/knowledge-domains/chemistry.json",
+          "bucket": "knowledge-domains",
+          "bytes": 2836
+        }
+      ]
+    },
+    {
+      "id": "domain-coding",
+      "kind": "knowledge",
+      "bucket": "knowledge-domains",
+      "file": "buckets/knowledge-domains/coding.json",
+      "bytes": 1946,
+      "summary": "Use this card to read a problem, name inputs and outputs, sketch pseudocode, estimate big-O, and check edge cases.",
+      "shards": [
+        {
+          "file": "buckets/knowledge-domains/coding.json",
+          "bucket": "knowledge-domains",
+          "bytes": 1946
+        }
+      ]
+    },
+    {
+      "id": "domain-communication",
+      "kind": "knowledge",
+      "bucket": "knowledge-domains",
+      "file": "buckets/knowledge-domains/communication.json",
+      "bytes": 2072,
+      "summary": "Use this card to fit a message to an audience and to name a misunderstanding before disagreeing.",
+      "shards": [
+        {
+          "file": "buckets/knowledge-domains/communication.json",
+          "bucket": "knowledge-domains",
+          "bytes": 2072
+        }
+      ]
+    },
+    {
+      "id": "domain-conversation",
+      "kind": "knowledge",
+      "bucket": "knowledge-domains",
+      "file": "buckets/knowledge-domains/conversation.json",
+      "bytes": 2046,
+      "summary": "Use this card for ordinary dialogue: greet, answer the actual question, keep one thread, and match the user's length.",
+      "shards": [
+        {
+          "file": "buckets/knowledge-domains/conversation.json",
+          "bucket": "knowledge-domains",
+          "bytes": 2046
+        }
+      ]
+    },
+    {
+      "id": "domain-critical-thinking",
+      "kind": "knowledge",
+      "bucket": "knowledge-domains",
+      "file": "buckets/knowledge-domains/critical-thinking.json",
+      "bytes": 3068,
+      "summary": "A study card for judging a claim by its evidence, assumptions, alternatives, and named fallacies.",
+      "shards": [
+        {
+          "file": "buckets/knowledge-domains/critical-thinking.json",
+          "bucket": "knowledge-domains",
+          "bytes": 3068
+        }
+      ]
+    },
+    {
+      "id": "domain-economy",
+      "kind": "knowledge",
+      "bucket": "knowledge-domains",
+      "file": "buckets/knowledge-domains/economy.json",
+      "bytes": 2825,
+      "summary": "Intro economics for gross domestic product, inflation as a rising price level, opportunity cost, and the direction of supply and demand.",
+      "shards": [
+        {
+          "file": "buckets/knowledge-domains/economy.json",
+          "bucket": "knowledge-domains",
+          "bytes": 2825
+        }
+      ]
+    },
+    {
+      "id": "domain-geology",
+      "kind": "knowledge",
+      "bucket": "knowledge-domains",
+      "file": "buckets/knowledge-domains/geology.json",
+      "bytes": 2936,
+      "summary": "Intro geology for the rock cycle, igneous, sedimentary, and metamorphic rocks, plate boundaries, and mineral versus rock.",
+      "shards": [
+        {
+          "file": "buckets/knowledge-domains/geology.json",
+          "bucket": "knowledge-domains",
+          "bytes": 2936
+        }
+      ]
+    },
+    {
+      "id": "domain-grammar",
+      "kind": "knowledge",
+      "bucket": "knowledge-domains",
+      "file": "buckets/knowledge-domains/grammar.json",
+      "bytes": 3042,
+      "summary": "Standard written-English patterns for parts of speech, clauses, agreement, tense, and modifier placement.",
+      "shards": [
+        {
+          "file": "buckets/knowledge-domains/grammar.json",
+          "bucket": "knowledge-domains",
+          "bytes": 3042
+        }
+      ]
+    },
+    {
+      "id": "domain-mechanics",
+      "kind": "knowledge",
+      "bucket": "knowledge-domains",
+      "file": "buckets/knowledge-domains/mechanics.json",
+      "bytes": 3049,
+      "summary": "This card solves force, motion, momentum, work, energy, and torque questions from the numbers already given.",
+      "shards": [
+        {
+          "file": "buckets/knowledge-domains/mechanics.json",
+          "bucket": "knowledge-domains",
+          "bytes": 3049
+        }
+      ]
+    },
+    {
+      "id": "domain-optics",
+      "kind": "knowledge",
+      "bucket": "knowledge-domains",
+      "file": "buckets/knowledge-domains/optics.json",
+      "bytes": 2674,
+      "summary": "This card solves reflection, refraction, thin-lens, magnification, and wave-speed questions from the numbers already given.",
+      "shards": [
+        {
+          "file": "buckets/knowledge-domains/optics.json",
+          "bucket": "knowledge-domains",
+          "bytes": 2674
+        }
+      ]
+    },
+    {
+      "id": "domain-psychology",
+      "kind": "knowledge",
+      "bucket": "knowledge-domains",
+      "file": "buckets/knowledge-domains/psychology.json",
+      "bytes": 2863,
+      "summary": "A study card on behavior and mental processes, including learning and bias, not a diagnosis or a treatment.",
+      "shards": [
+        {
+          "file": "buckets/knowledge-domains/psychology.json",
+          "bucket": "knowledge-domains",
+          "bytes": 2863
+        }
+      ]
+    },
+    {
+      "id": "domain-statistics",
+      "kind": "knowledge",
+      "bucket": "knowledge-domains",
+      "file": "buckets/knowledge-domains/statistics.json",
+      "bytes": 2696,
+      "summary": "Introductory statistics for center and spread, and for reading a histogram, a normal distribution, or a null hypothesis without overclaiming.",
+      "shards": [
+        {
+          "file": "buckets/knowledge-domains/statistics.json",
+          "bucket": "knowledge-domains",
+          "bytes": 2696
+        }
+      ]
+    },
+    {
+      "id": "domain-trigonometry",
+      "kind": "knowledge",
+      "bucket": "knowledge-domains",
+      "file": "buckets/knowledge-domains/trigonometry.json",
+      "bytes": 2731,
+      "summary": "This card solves right and oblique triangle questions from the sides and angles already given.",
+      "shards": [
+        {
+          "file": "buckets/knowledge-domains/trigonometry.json",
+          "bucket": "knowledge-domains",
+          "bytes": 2731
+        }
+      ]
+    },
+    {
+      "id": "domain-vocabulary",
+      "kind": "knowledge",
+      "bucket": "knowledge-domains",
+      "file": "buckets/knowledge-domains/vocabulary.json",
+      "bytes": 2652,
+      "summary": "A small study card for explaining a word in context and choosing one for an audience, not a full dictionary.",
+      "shards": [
+        {
+          "file": "buckets/knowledge-domains/vocabulary.json",
+          "bucket": "knowledge-domains",
+          "bytes": 2652
+        }
+      ]
+    },
+    {
+      "id": "domain-web-search",
+      "kind": "knowledge",
+      "bucket": "knowledge-domains",
+      "file": "buckets/knowledge-domains/web-search.json",
+      "bytes": 2073,
+      "summary": "Use this card to write a query with an entity and a constraint, prefer a primary source, read past the title, and cite the URL.",
+      "shards": [
+        {
+          "file": "buckets/knowledge-domains/web-search.json",
+          "bucket": "knowledge-domains",
+          "bytes": 2073
+        }
+      ]
+    }
+  ]
+}

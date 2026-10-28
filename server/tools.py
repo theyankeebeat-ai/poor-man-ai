@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import html
 import json
 import os
 import re
@@ -27,6 +28,11 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 IMAGES_DIR = DATA_DIR / "images"
 VIDEOS_DIR = DATA_DIR / "videos"
 DEFAULT_SAFE_ROOTS = [VIDEOS_DIR, IMAGES_DIR]
+
+_NEWSY = re.compile(
+    r"\b(happened|happening|news|today|latest|ipo|yesterday|breaking)\b",
+    re.I,
+)
 
 JINA_SEARCH = "https://s.jina.ai/"
 JINA_READ = "https://r.jina.ai/"
@@ -223,12 +229,27 @@ async def web_search(args: dict[str, Any]) -> str:
         )
     except Exception:
         pass
-    if len(results) < 3:
+    # Wikipedia can fill a news ask (IPO, "what happened") and skip the actual story.
+    newsworthy = bool(_NEWSY.search(query))
+    news: list[dict[str, str]] = []
+    if newsworthy or len(results) < 3:
         try:
-            news = await asyncio.wait_for(_google_news_search(client, query), timeout=4.0)
+            news = await asyncio.wait_for(_google_news_search(client, query), timeout=4.0) or []
         except Exception:
             news = []
-        for hit in news or []:
+    if newsworthy:
+        merged: list[dict[str, str]] = []
+        seen: set[str] = set()
+        for hit in [*news, *results]:
+            url = str(hit.get("url") or "")
+            if url:
+                if url in seen:
+                    continue
+                seen.add(url)
+            merged.append(hit)
+        results = merged
+    else:
+        for hit in news:
             url = str(hit.get("url") or "")
             if url and not any(str(r.get("url") or "") == url for r in results):
                 results.append(hit)
@@ -446,6 +467,14 @@ async def _fetch_html(
         return ""
 
 
+def _plain_news_text(text: str) -> str:
+    """Decode news entities and tags into normal spaces. `&nbsp;` must not survive."""
+    raw = html.unescape(text or "")
+    raw = raw.replace("\u00a0", " ")
+    raw = re.sub(r"<[^>]+>", " ", raw)
+    return re.sub(r"\s+", " ", raw).strip()
+
+
 async def _google_news_search(client: httpx.AsyncClient, query: str) -> list[dict[str, str]]:
     """Live Google News RSS search providing real-time articles, dates, and sources without API keys."""
     headers = {
@@ -469,10 +498,9 @@ async def _google_news_search(client: httpx.AsyncClient, query: str) -> list[dic
         items = root.findall(".//item")
         results: list[dict[str, str]] = []
         for item in items[:8]:
-            title = (item.findtext("title") or "").strip()
+            title = _plain_news_text(item.findtext("title") or "")
             link = (item.findtext("link") or "").strip()
-            desc = (item.findtext("description") or "").strip()
-            desc = re.sub(r"<[^>]+>", "", desc).strip()
+            desc = _plain_news_text(item.findtext("description") or "")
             pub = (item.findtext("pubDate") or "").strip()
             snip = f"{pub} - {desc}" if pub else desc
             if title and link:
@@ -1490,8 +1518,9 @@ RUNNERS["rag_index"] = _run_rag_index
 
 async def _run_hf_search(args: dict[str, Any]) -> str:
     import asyncio
-    from server.hf_tiny import run_query
-    result = await asyncio.to_thread(run_query, str(args.get("query", "")), int(args.get("top_k", 3)))
+    from server.mesh import call_model
+
+    result = await asyncio.to_thread(call_model, str(args.get("query", "")), int(args.get("top_k", 3)))
     return result["answer"]
 
 
@@ -1508,6 +1537,31 @@ TOOLS.append({
     },
 })
 RUNNERS["hf_search"] = _run_hf_search
+
+
+async def _run_bucket_find(args: dict[str, Any]) -> str:
+    from server.buckets import find
+
+    result = find(str(args.get("query", "")), int(args.get("limit", 5)))
+    return json.dumps(result, ensure_ascii=False)
+
+
+TOOLS.append({
+    "type": "function",
+    "function": {
+        "name": "bucket_find",
+        "description": "Find the storage bucket for a dataset, parameter tensor, tokenizer token, or WikiText passage. Each bucket is under 50 MB. Returns locations, not weight values.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 20},
+            },
+            "required": ["query"],
+        },
+    },
+})
+RUNNERS["bucket_find"] = _run_bucket_find
 
 
 

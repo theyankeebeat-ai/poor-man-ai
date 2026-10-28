@@ -37,7 +37,7 @@ def route(message: str, history: list[Turn]) -> dict[str, Any]:
     steps = MAX_STEPS.get(mode, MAX_STEPS.get(kind, 4))
     if cheap is not None:
         steps = 0
-    if mode in {"chat", "calc", "memory", "code"}:
+    if mode in {"chat", "calc", "memory", "code", "domain"}:
         crew = set()
         needs_crew = False
     elif mode == "weather":

@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { API, streamChat, uploadFile, synthesizeTTS } from './api';
 import { useTheme } from './ThemeContext';
+import { splitCitations } from './lib/formatResults';
 
 export interface ChatMessage {
   id: string;
@@ -59,6 +60,89 @@ const INITIAL_MESSAGES: ChatMessage[] = [
 
 const SESSIONS_STORAGE_KEY = 'poor_man_chat_sessions_v2';
 const ACTIVE_SESSION_KEY = 'poor_man_active_session_v2';
+
+const URL_TOKEN = /https?:\/\/[^\s)\]>"]+/g;
+const TRAILING_PUNCT = /[.,;:!?]+$/;
+
+/** Non-breaking spaces become normal spaces before any URL scan. */
+function decodeBreakSpaces(text: string): string {
+  return text.replace(/&nbsp;|&#160;|&#xa0;/gi, ' ').replace(/\u00a0/g, ' ');
+}
+
+function layoutCitations(text: string): string {
+  const match = /citations\s*:/i.exec(text);
+  if (!match || match.index == null) return text;
+  const head = text.slice(0, match.index).replace(/[ \t]+$/g, '').replace(/\n+$/g, '');
+  let tail = text.slice(match.index + match[0].length);
+  tail = tail.replace(new RegExp(URL_TOKEN.source, 'g'), (raw) => {
+    const href = raw.replace(TRAILING_PUNCT, '');
+    return `\n${href}${raw.slice(href.length)}`;
+  });
+  tail = tail.replace(/[ \t]+\n/g, '\n').replace(/\n[ \t]+/g, '\n').replace(/^\n+/, '');
+  return `${head}\n\nCitations:\n${tail}`.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function assistantProse(content: string): { body: string; urls: string[] } {
+  const prepared = layoutCitations(decodeBreakSpaces(content || ''));
+  const split = splitCitations(prepared);
+  const urls: string[] = [];
+  const push = (raw: string) => {
+    const u = raw.replace(TRAILING_PUNCT, '');
+    if (u && !urls.includes(u)) urls.push(u);
+  };
+  for (const u of split.urls) push(u);
+  let body = split.body.replace(
+    /\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)/g,
+    (_match, label: string, url: string) => {
+      push(url);
+      return label;
+    }
+  );
+  for (const m of body.matchAll(new RegExp(URL_TOKEN.source, 'g'))) push(m[0]);
+  body = body
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/[ \t]+([.,;])/g, '$1')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return { body, urls };
+}
+
+function renderLinkedText(text: string): React.ReactNode {
+  const re = new RegExp(URL_TOKEN.source, 'g');
+  const nodes: React.ReactNode[] = [];
+  let last = 0;
+  let key = 0;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > last) {
+      nodes.push(<React.Fragment key={`t${key++}`}>{text.slice(last, match.index)}</React.Fragment>);
+    }
+    const raw = match[0];
+    const href = raw.replace(TRAILING_PUNCT, '');
+    const trail = raw.slice(href.length);
+    if (href) {
+      nodes.push(
+        <a key={`u${key++}`} href={href} target="_blank" rel="noreferrer" className="break-all underline">
+          {href}
+        </a>
+      );
+    }
+    if (trail) nodes.push(<React.Fragment key={`p${key++}`}>{trail}</React.Fragment>);
+    last = match.index + raw.length;
+  }
+  if (!nodes.length) return text;
+  if (last < text.length) nodes.push(<React.Fragment key={`t${key++}`}>{text.slice(last)}</React.Fragment>);
+  return nodes;
+}
+
+function hostLabel(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
 
 export const AIChatInterface: React.FC = () => {
   const { colors } = useTheme();
@@ -254,10 +338,10 @@ export const AIChatInterface: React.FC = () => {
   const copyEntireChat = async () => {
     const fullText = messages
       .filter((m) => m.sender !== 'system')
-      .map(
-        (m) =>
-          `### ${m.sender === 'user' ? 'User' : 'Poor Man AI Assistant'} (${m.timestamp})\n\n${m.content}\n`
-      )
+      .map((m) => {
+        const text = m.sender === 'assistant' ? assistantProse(m.content).body : m.content;
+        return `### ${m.sender === 'user' ? 'User' : 'Poor Man AI Assistant'} (${m.timestamp})\n\n${text}\n`;
+      })
       .join('\n---\n\n');
     try {
       await navigator.clipboard.writeText(fullText);
@@ -330,6 +414,15 @@ export const AIChatInterface: React.FC = () => {
       return;
     }
 
+    const cleanText = assistantProse(text).body
+      .replace(/```[\s\S]*?```/g, 'Code block omitted.')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .trim()
+      .slice(0, 1800);
+
+    if (!cleanText) return;
+
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
       currentAudioRef.current = null;
@@ -339,12 +432,6 @@ export const AIChatInterface: React.FC = () => {
     }
 
     setPlayingAudioId(msgId);
-
-    const cleanText = text
-      .replace(/```[\s\S]*?```/g, 'Code block omitted.')
-      .replace(/`([^`]+)`/g, '$1')
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      .slice(0, 1800);
 
     try {
       const blob = await synthesizeTTS(cleanText);
@@ -624,7 +711,8 @@ export const AIChatInterface: React.FC = () => {
 
             // Auto-speak in voice mode if enabled
             if (autoSpeakResponse && finalContent) {
-              playTTS(assistantMsgId, finalContent);
+              const spoken = assistantProse(finalContent).body;
+              if (spoken) playTTS(assistantMsgId, spoken);
             }
           } else if (ev.type === 'error') {
             setMessages((prev) =>
@@ -954,7 +1042,7 @@ export const AIChatInterface: React.FC = () => {
 
       {/* ================= MESSAGE FEED ================= */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 custom-scrollbar">
-        {messages.map((msg) => {
+        {messages.map((msg, index) => {
           if (msg.sender === 'system') {
             return (
               <div key={msg.id} className="flex justify-center my-2">
@@ -967,11 +1055,15 @@ export const AIChatInterface: React.FC = () => {
           }
 
           const isAssistant = msg.sender === 'assistant';
+          const prose = isAssistant ? assistantProse(msg.content) : null;
+          const visible = prose ? prose.body : msg.content;
+          const stillStreaming = isAssistant && isGenerating && index === messages.length - 1;
+          const showSources = !!prose && prose.urls.length > 0 && !stillStreaming;
 
           return (
             <div
               key={msg.id}
-              className={`flex gap-3 max-w-4xl ${isAssistant ? 'mr-auto' : 'ml-auto flex-row-reverse'}`}
+              className={`flex gap-3 max-w-4xl min-w-0 ${isAssistant ? 'mr-auto' : 'ml-auto flex-row-reverse'}`}
             >
               {/* Avatar */}
               <div
@@ -986,8 +1078,8 @@ export const AIChatInterface: React.FC = () => {
 
               {/* Message Container */}
               <div
-                className={`flex flex-col space-y-2 max-w-[90%] md:max-w-[85%] ${
-                  isAssistant ? 'items-start' : 'items-end'
+                className={`flex flex-col space-y-2 max-w-[90%] md:max-w-[85%] min-w-0 max-w-full ${
+                  isAssistant ? 'w-full items-start' : 'items-end'
                 }`}
               >
                 {/* Header info & Action buttons */}
@@ -1006,7 +1098,7 @@ export const AIChatInterface: React.FC = () => {
                   <div className="flex items-center gap-1 ml-2">
                     {/* Copy Button */}
                     <button
-                      onClick={() => copyToClipboard(msg.content, msg.id)}
+                      onClick={() => copyToClipboard(visible, msg.id)}
                       className={`p-1 rounded hover:${colors.badgeBg} hover:${colors.textPrimary} transition-colors`}
                       title="Copy content"
                     >
@@ -1020,7 +1112,7 @@ export const AIChatInterface: React.FC = () => {
                     {/* TTS Speaker button for assistant answers */}
                     {isAssistant && msg.content && (
                       <button
-                        onClick={() => playTTS(msg.id, msg.content)}
+                        onClick={() => playTTS(msg.id, visible)}
                         className={`p-1 rounded hover:${colors.badgeBg} hover:${colors.textPrimary} transition-colors ${
                           playingAudioId === msg.id ? 'text-indigo-400 animate-pulse' : ''
                         }`}
@@ -1103,15 +1195,17 @@ export const AIChatInterface: React.FC = () => {
 
                 {/* Message Bubble */}
                 <div
-                  className={`rounded-2xl p-4 text-sm leading-relaxed ${
+                  className={`rounded-2xl p-4 text-sm leading-relaxed min-w-0 max-w-full ${
                     isAssistant
-                      ? `${colors.bgCard} border ${colors.border} shadow-sm`
+                      ? `w-full ${colors.bgCard} border ${colors.border} shadow-sm`
                       : `${colors.accent} rounded-tr-sm shadow-md`
                   }`}
                 >
-                  {msg.content ? (
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
-                  ) : (
+                  {visible ? (
+                    <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] min-w-0 max-w-full">
+                      {isAssistant ? renderLinkedText(visible) : visible}
+                    </div>
+                  ) : !msg.content ? (
                     <div className="flex items-center gap-2 text-cyan-400 italic text-xs">
                       <Sparkles className="w-3.5 h-3.5 animate-spin" />
                       <span>
@@ -1120,6 +1214,35 @@ export const AIChatInterface: React.FC = () => {
                           : 'Synthesizing response...'}
                       </span>
                     </div>
+                  ) : null}
+                  {showSources && prose && (
+                    <details className={`group w-full overflow-hidden rounded-xl border ${colors.border} ${visible ? 'mt-3' : ''}`}>
+                      <summary
+                        className={`flex w-full cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-[11px] font-medium ${colors.badgeBg} ${colors.textMuted} [&::-webkit-details-marker]:hidden`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span>Sources</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${colors.accentMuted}`}>
+                            {prose.urls.length}
+                          </span>
+                        </span>
+                        <ChevronDown className="w-3.5 h-3.5 shrink-0 transition-transform -rotate-90 group-open:rotate-0" />
+                      </summary>
+                      <div className={`border-t ${colors.border}`}>
+                        {prose.urls.map((url) => (
+                          <a
+                            key={url}
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className={`block truncate px-3 py-1.5 text-xs underline-offset-2 hover:underline ${colors.textPrimary}`}
+                          >
+                            {hostLabel(url)}
+                          </a>
+                        ))}
+                      </div>
+                    </details>
                   )}
                 </div>
               </div>

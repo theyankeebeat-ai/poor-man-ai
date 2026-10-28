@@ -172,7 +172,8 @@ def _llm_answer(message: str, history: list[Turn], evidence: str) -> str | None:
                         "Use the evidence when answering factual queries. For how-to, include working code in a fenced block. "
                         "Do not dump JSON, SERP titles, or tool logs. "
                         "Only include citations if web evidence was used. "
-                        "Follow-ups stay on the same topic as the thread."
+                        "Follow-ups stay on the same topic as the thread. "
+                        "If the user asked more than one question, answer every question in order and do not stop after the first."
                     ),
                 },
                 {

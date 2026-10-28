@@ -79,8 +79,16 @@ it does not fine-tune the model or generate chat prose. The agent can call
 `hf_search` to access the same model. `/health` reports whether weights have
 actually loaded. The first model request loads the snapshot lazily.
 
+`python scripts/build_json_buckets.py` writes JSON copies of the checkpoint,
+WikiText splits, tokenizer, telemetry, and domain cards into `hf/buckets/`.
+Each bucket stays under 50 MB. `bucket_find` reads `index.json` and
+`lookup.sqlite` so the local model can open the right file without scanning
+the shards. The encoder still loads `pytorch_model.bin`.
+
 `python -m server.backends` synchronizes `hf/` to the private Supabase and
-Appwrite buckets and publishes a SHA-256 manifest. `HF_STORAGE_PROVIDER=auto`
+Appwrite buckets and publishes a SHA-256 manifest. Files under
+`hf/buckets/<name>/` upload to their own bucket (`<primary>-<name>`).
+`HF_STORAGE_PROVIDER=auto`
 restores and verifies that snapshot from Supabase, falling back to Appwrite.
 Use `local` for files already on disk, or name one provider explicitly.
 Set `HF_SNAPSHOT_DIR` to a writable cache directory on Render. Credentials

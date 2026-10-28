@@ -1,0 +1,64 @@
+{
+  "name": "conversation",
+  "title": "Conversation",
+  "topics": [
+    "conversation",
+    "small talk",
+    "turn-taking",
+    "dialogue",
+    "one follow-up",
+    "match length",
+    "keep one thread"
+  ],
+  "triggers": [
+    "conversation",
+    "small talk",
+    "turn-taking",
+    "dialogue",
+    "one follow-up",
+    "match length",
+    "keep one thread"
+  ],
+  "scope": "Use this card for ordinary dialogue: greet, answer the actual question, keep one thread, and match the user's length.",
+  "method": [
+    "Greet briefly when a greeting is part of the turn.",
+    "Answer the actual question before adding anything else.",
+    "Keep one thread until it is finished.",
+    "Ask one follow-up only when you are blocked.",
+    "Match length to the user.",
+    "Stop when the question is answered and the thread is clear."
+  ],
+  "formulas": [
+    {
+      "name": "turn",
+      "expr": "answer, then at most one follow-up",
+      "use": "Give the answer first, and ask a follow-up only if you cannot continue without it."
+    },
+    {
+      "name": "one thread",
+      "expr": "one topic until it closes",
+      "use": "Do not open a second subject while the first question is still open."
+    },
+    {
+      "name": "length match",
+      "expr": "reply length tracks the user",
+      "use": "A short message gets a short reply unless the user asked for more."
+    },
+    {
+      "name": "blocked turn",
+      "expr": "one question only if the answer is otherwise impossible",
+      "use": "Ask a single follow-up when a missing fact blocks the answer, then stop."
+    }
+  ],
+  "checks": [
+    "The reply answers the question that was asked.",
+    "Only one thread is open.",
+    "There is at most one follow-up, and only because the turn is blocked.",
+    "The length is close to the user's, and the reply is not a therapy script."
+  ],
+  "limits": [
+    "This card is ordinary conversation, not a therapy script.",
+    "Do not add a follow-up when the question is already answerable.",
+    "Do not switch threads to fill silence."
+  ]
+}

@@ -1,4 +1,4 @@
-"""CPU BERT-tiny inference over a bounded WikiText training-split shortlist."""
+"""WikiText-2 train retrieval: BM25 shortlist, then BERT-tiny cosine rerank."""
 
 from __future__ import annotations
 
@@ -8,21 +8,23 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from server.bm25 import BM25Index
+
 ROOT = Path(__file__).resolve().parent.parent
 HF_DIR = Path(os.getenv("HF_SNAPSHOT_DIR", str(ROOT / "hf")))
 MODEL_DIR = HF_DIR / "prajjwal1-bert-tiny"
 WIKI_DIR = HF_DIR / "wikitext-2-raw-v1" / "wikitext-2-raw-v1"
 TEXT_SUFFIXES = {".txt", ".json", ".md", ".gitignore"}
-SPECIAL = {"[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]"}
 MAX_LENGTH = 128
 SHORTLIST_SIZE = 16
+BATCH_SIZE = 4
 
 _lock = threading.Lock()
 _tokenizer: "WordPiece | None" = None
 _model_card: dict[str, Any] | None = None
 _passages: list[dict[str, Any]] | None = None
 _model = None
-_inference_lock = threading.Lock()
+_bm25: BM25Index | None = None
 _runtime = {"loaded": False, "weights_loaded": False}
 
 
@@ -38,11 +40,17 @@ class WordPiece:
         return ["[CLS]", *self.backend.tokenize(text), "[SEP]"]
 
 
-def _load() -> tuple[WordPiece, dict[str, Any], list[dict[str, Any]]]:
-    global _tokenizer, _model_card, _passages, _model
+def _load() -> tuple[Any, WordPiece, dict[str, Any], list[dict[str, Any]], BM25Index]:
+    global _tokenizer, _model_card, _passages, _model, _bm25
     with _lock:
-        if _tokenizer is not None and _model_card is not None and _passages is not None:
-            return _tokenizer, _model_card, _passages
+        if (
+            _model is not None
+            and _tokenizer is not None
+            and _model_card is not None
+            and _passages is not None
+            and _bm25 is not None
+        ):
+            return _model, _tokenizer, _model_card, _passages, _bm25
         from server.hf_storage import restore_snapshot
         restored = restore_snapshot(HF_DIR)
         import torch
@@ -69,7 +77,9 @@ def _load() -> tuple[WordPiece, dict[str, Any], list[dict[str, Any]]]:
             "weights_bytes": weight_bytes,
             "parameter_count": sum(p.numel() for p in model.parameters()),
             "weights_loaded": True,
-            "inference": "bert_mean_pool_cosine_rerank",
+            "inference": "bert-tiny",
+            "uses": ["parameters", "dataset", "tokenizer"],
+            "embedding_dim": config["hidden_size"],
             "dataset_split": "train",
             "max_length": MAX_LENGTH,
             "shortlist_size": SHORTLIST_SIZE,
@@ -86,14 +96,13 @@ def _load() -> tuple[WordPiece, dict[str, Any], list[dict[str, Any]]]:
         _tokenizer = WordPiece(vocab_path)
         if len(_tokenizer.ids) != config["vocab_size"]:
             raise RuntimeError("Tokenizer vocabulary does not match model embeddings")
-        for passage in passages:
-            passage["terms"] = _content_tokens(_tokenizer.tokenize(passage["text"][:800]), _tokenizer.ids)
+        _bm25 = BM25Index([passage["text"] for passage in passages])
         _model = model
         _model_card = card
         _passages = passages
-        _runtime.update(loaded=True, weights_loaded=True, provider=restored["provider"],
+        _runtime.update(loaded=True, weights_loaded=True, inference="bert-tiny", provider=restored["provider"],
                         parameter_count=card["parameter_count"], passages=len(passages), dataset_split="train")
-        return _tokenizer, card, passages
+        return model, _tokenizer, card, passages, _bm25
 
 
 def _read_wiki() -> list[dict[str, Any]]:
@@ -113,11 +122,6 @@ def _read_wiki() -> list[dict[str, Any]]:
                 continue
             rows.append({"split": split, "text": value})
     return rows
-
-
-def _content_tokens(pieces: list[str], ids: dict[str, int]) -> set[int]:
-    # Reuse vocabulary IDs rather than retaining duplicate strings per passage.
-    return {ids[p] for p in pieces if p not in SPECIAL and len(p) > 2}
 
 
 def resolve_hf_path(relative: str) -> Path:
@@ -159,6 +163,8 @@ def catalog_hf() -> dict[str, Any]:
             "kind": kind,
             "url": f"/static/hf/{relative}",
         })
+    from server.buckets import status
+
     return {
         "root": "hf",
         "exists": True,
@@ -166,6 +172,7 @@ def catalog_hf() -> dict[str, Any]:
         "files": files,
         "file_count": len(files),
         "total_bytes": sum(item["bytes"] for item in files),
+        "buckets": status(HF_DIR),
     }
 
 
@@ -213,65 +220,81 @@ def read_hf_file(relative: str, limit: int = 12000) -> dict[str, Any]:
     return payload
 
 
+def _embed_texts(model: Any, tokenizer: WordPiece, texts: list[str]) -> Any:
+    """Mean-pool BERT-tiny states for a few texts. Caller must not pass the corpus."""
+    import torch
+
+    model.eval()
+    device = next(model.parameters()).device
+    chunks = []
+    for start in range(0, len(texts), BATCH_SIZE):
+        encoded = tokenizer.backend(
+            texts[start:start + BATCH_SIZE],
+            truncation=True,
+            max_length=MAX_LENGTH,
+            padding=True,
+            return_tensors="pt",
+        )
+        encoded = {key: value.to(device) for key, value in encoded.items()}
+        with torch.no_grad():
+            hidden = model(
+                input_ids=encoded["input_ids"],
+                attention_mask=encoded["attention_mask"],
+                token_type_ids=encoded.get("token_type_ids"),
+            ).last_hidden_state
+        mask = encoded["attention_mask"].unsqueeze(-1).to(dtype=hidden.dtype)
+        pooled = (hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1e-9)
+        chunks.append(torch.nn.functional.normalize(pooled, p=2, dim=-1))
+    return torch.cat(chunks, dim=0)
+
+
 def run_query(query: str, top_k: int = 3) -> dict[str, Any]:
     query = query.strip()
     if not query or len(query) > 8000:
         raise ValueError("Query must contain 1 to 8000 characters")
     if not 1 <= top_k <= 10:
         raise ValueError("top_k must be between 1 and 10")
-    tokenizer, card, passages = _load()
-    pieces = tokenizer.tokenize(query)
-    query_tokens = _content_tokens(pieces, tokenizer.ids)
-    scored: list[tuple[int, dict[str, Any]]] = []
-    if query_tokens:
-        for passage in passages:
-            doc_tokens = passage["terms"]
-            overlap = len(query_tokens & doc_tokens)
-            if overlap:
-                scored.append((overlap, passage))
-        scored.sort(key=lambda item: item[0], reverse=True)
-    candidates = scored[:max(SHORTLIST_SIZE, top_k)]
-    reranked = []
-    if candidates:
-        import torch
-        with _inference_lock, torch.inference_mode():
-            # Configure the worker executing this request, including cached-model requests.
-            torch.set_num_threads(max(1, int(os.getenv("HF_NUM_THREADS", "1"))))
-            def embed(texts):
-                encoded = tokenizer.backend(
-                    texts, padding=True, truncation=True, max_length=MAX_LENGTH, return_tensors="pt",
-                )
-                hidden = _model(**encoded).last_hidden_state
-                mask = encoded["attention_mask"].unsqueeze(-1)
-                pooled = (hidden * mask).sum(1) / mask.sum(1).clamp(min=1)
-                return torch.nn.functional.normalize(pooled, dim=1)
+    model, tokenizer, card, passages, index = _load()
+    shortlist = index.top(query, SHORTLIST_SIZE)
+    hits: list[dict[str, Any]] = []
+    if shortlist:
+        vectors = _embed_texts(
+            model,
+            tokenizer,
+            [query, *[passages[idx]["text"] for _score, idx in shortlist]],
+        )
+        cosines = (vectors[1:] @ vectors[0]).detach().float().cpu().tolist()
+        order = sorted(range(len(shortlist)), key=lambda i: (-cosines[i], shortlist[i][1]))
+        hits = [
+            {
+                "split": passages[shortlist[i][1]]["split"],
+                "score": float(cosines[i]),
+                "text": passages[shortlist[i][1]]["text"][:500],
+            }
+            for i in order[:top_k]
+        ]
+    from server.buckets import status
 
-            query_vector = embed([query])[0]
-            similarities = []
-            # Bound activation memory independently of shortlist size on 512 MB hosts.
-            for start in range(0, len(candidates), 4):
-                vectors = embed([p["text"][:800] for _, p in candidates[start:start + 4]])
-                similarities.extend((vectors @ query_vector).tolist())
-        reranked = sorted(zip(similarities, [p for _, p in candidates]), key=lambda item: item[0], reverse=True)
-    hits = [
-        {
-            "split": passage["split"],
-            "score": score,
-            "text": passage["text"][:500],
-        }
-        for score, passage in reranked[:top_k]
-    ]
-    if hits:
-        body = "\n\n".join(f"[{hit['split']} cosine {hit['score']:.3f}] {hit['text']}" for hit in hits)
-    else:
-        body = "No WikiText-2 passage shared WordPiece tokens with this query."
-    answer = (
-        f"BERT retrieval using {card['model_id']} loaded weights "
-        f"({card['parameter_count']:,} parameters, {card['weights_bytes']:,} byte weights) "
-        f"with the {card['dataset_id']} {card['dataset_config']} snapshot.\n\n"
-        f"WordPiece: {' '.join(pieces[:48])}\n\n{body}"
-        "\n\nThese are retrieved passages. BERT-tiny is an encoder, not a chat generator; no fine-tuning was performed."
+    storage = status(HF_DIR)
+    train_bucket = next(
+        (item["id"] for item in storage.get("buckets") or [] if str(item.get("id") or "").startswith("dataset-wikitext-train")),
+        None,
     )
+    if train_bucket:
+        for hit in hits:
+            hit["bucket"] = train_bucket
+    if hits:
+        note = (
+            "The passage was chosen by the BERT-tiny encoder using pytorch_model.bin, "
+            "vocab.txt, and the WikiText-2 train split. "
+            "The encoder retrieves; it does not write a new paragraph."
+        )
+        if train_bucket:
+            note += f" The passage JSON is in the {train_bucket} bucket."
+        answer = f"{hits[0]['text']}\n\n{note}"
+    else:
+        answer = "No WikiText-2 train passage matched the query."
+    pieces = tokenizer.tokenize(query)
     return {
         "query": query,
         "model": card,
@@ -280,6 +303,7 @@ def run_query(query: str, top_k: int = 3) -> dict[str, Any]:
         "input_ids": tokenizer.backend(query, truncation=True, max_length=MAX_LENGTH)["input_ids"],
         "hits": hits,
         "answer": answer,
+        "buckets": storage,
     }
 
 

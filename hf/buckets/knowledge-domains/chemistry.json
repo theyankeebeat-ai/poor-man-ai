@@ -1,0 +1,71 @@
+{
+  "name": "chemistry",
+  "title": "Chemistry",
+  "topics": [
+    "chemistry",
+    "stoichiometry",
+    "molar mass",
+    "periodic table",
+    "covalent",
+    "ionic bond",
+    "ph scale",
+    "ideal gas law",
+    "conservation of mass",
+    "hydronium ion"
+  ],
+  "triggers": [
+    "chemistry",
+    "stoichiometry",
+    "molar mass",
+    "periodic table",
+    "covalent",
+    "ionic bond",
+    "ph scale",
+    "ideal gas law",
+    "conservation of mass",
+    "hydronium ion"
+  ],
+  "scope": "Intro chemistry for conservation of mass, molar mass, bond type, the ideal gas law, and the pH scale.",
+  "method": [
+    "List the knowns, the unknown, and the units before any arithmetic.",
+    "Use conservation of mass: each element has the same atom count on both sides of a balanced equation.",
+    "Balance by inspection, changing coefficients only, then recheck the counts without changing subscripts.",
+    "Read molar mass from the periodic table and convert mass to moles with n = m / M for stoichiometry.",
+    "For an ideal gas, use PV = nRT with R = 0.0821 L·atm/(mol·K) and temperature in kelvin.",
+    "Call the bond an ionic bond when electrons are transferred, and covalent when electrons are shared.",
+    "On the pH scale, compute pH from the hydronium ion and read a lower pH as a higher hydronium concentration."
+  ],
+  "formulas": [
+    {
+      "name": "Conservation of mass",
+      "expr": "mass of reactants = mass of products",
+      "use": "In a closed change, mass is conserved because atoms are rearranged rather than created or destroyed."
+    },
+    {
+      "name": "Moles from molar mass",
+      "expr": "n = m / M",
+      "use": "Amount in moles equals sample mass divided by molar mass in grams per mole."
+    },
+    {
+      "name": "Ideal gas law",
+      "expr": "PV = nRT",
+      "use": "With R = 0.0821 L·atm/(mol·K), the law relates pressure in atmospheres, volume in liters, moles, and kelvin temperature."
+    },
+    {
+      "name": "pH",
+      "expr": "pH = -log10[H3O+]",
+      "use": "pH is the negative base-10 logarithm of the hydronium ion concentration on the pH scale."
+    }
+  ],
+  "checks": [
+    "Coefficients may change when balancing; subscripts and formulas of substances may not.",
+    "Molar mass comes from the periodic table, and the mole conversion is n = m / M.",
+    "The stated R requires atmospheres, liters, moles, and kelvin, not degrees Celsius.",
+    "An ionic bond is electron transfer, a covalent bond is electron sharing, and a smaller pH means a larger [H3O+]."
+  ],
+  "limits": [
+    "This card does not give a procedure to make a substance.",
+    "It gives no preparation steps and no concentrations or recipes for drugs, explosives, poisons, or weapons.",
+    "The gas law and pH equation only interpret data you already have; they are not a lab clearance."
+  ]
+}

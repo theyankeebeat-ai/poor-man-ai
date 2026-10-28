@@ -84,6 +84,14 @@ def delete(kind: str, *parts: str) -> bool:
         return cur.rowcount > 0
 
 
+def clear_all() -> int:
+    """Drop every kv row. Empty cache is intentional, not a missing table."""
+    with _conn() as c:
+        n = int(c.execute("SELECT COUNT(*) FROM kv").fetchone()[0])
+        c.execute("DELETE FROM kv")
+        return n
+
+
 def purge_matching(pattern: str) -> int:
     """Delete any cached payload whose value matches a regex (case-insensitive)."""
     rx = re.compile(pattern, re.I)

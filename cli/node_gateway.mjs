@@ -21,17 +21,50 @@ const __dirname = path.dirname(__filename);
 const PORT = process.env.NODE_GATEWAY_PORT || 3001;
 const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://127.0.0.1:8000';
 
-function proxyGet(targetPath, res) {
-  const url = new URL(targetPath, PYTHON_BACKEND_URL);
-  const lib = url.protocol === 'https:' ? https : http;
-  const upstream = lib.get(url, (proxyRes) => {
-    res.writeHead(proxyRes.statusCode || 502, { 'Content-Type': 'application/json' });
+function upstreamErrorCode(err) {
+  const code = err && typeof err.code === 'string' ? err.code : '';
+  return /^[A-Z][A-Z0-9_]*$/.test(code) ? code : 'upstream unavailable';
+}
+
+function proxyToPython(req, res) {
+  let target;
+  try {
+    const base = new URL(PYTHON_BACKEND_URL);
+    const incoming = new URL(req.url || '/', base);
+    target = new URL(`${incoming.pathname}${incoming.search}`, base);
+  } catch {
+    if (!res.headersSent) {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'upstream unavailable' }));
+    }
+    return;
+  }
+
+  const headers = {};
+  if (req.headers['content-type']) headers['Content-Type'] = req.headers['content-type'];
+  if (req.headers.accept) headers.Accept = req.headers.accept;
+  if (req.headers['content-length']) headers['Content-Length'] = req.headers['content-length'];
+
+  const lib = target.protocol === 'https:' ? https : http;
+  const upstream = lib.request(target, { method: req.method, headers }, (proxyRes) => {
+    const out = {};
+    for (const name of ['content-type', 'cache-control', 'x-accel-buffering', 'content-length']) {
+      const value = proxyRes.headers[name];
+      if (value) out[name] = value;
+    }
+    res.writeHead(proxyRes.statusCode || 502, out);
     proxyRes.pipe(res);
   });
   upstream.on('error', (err) => {
+    if (res.headersSent) {
+      res.destroy();
+      return;
+    }
     res.writeHead(502, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: String(err) }));
+    res.end(JSON.stringify({ error: upstreamErrorCode(err) }));
   });
+  req.on('error', () => upstream.destroy());
+  req.pipe(upstream);
 }
 
 console.log(`[Poor Man AI - Node.js Agent Gateway] Initializing on port ${PORT}...`);
@@ -73,15 +106,10 @@ const server = http.createServer(async (req, res) => {
         'Direct Node Script Execution',
         'Package Dependency Analyzer',
         'Streaming NDJSON Proxy',
-        'Render, Appwrite, and Supabase for Firebase'
+        'One mesh with the Python model, dataset, and tokenizer'
       ],
       backends: `${PYTHON_BACKEND_URL}/api/backends`
     }, null, 2));
-    return;
-  }
-
-  if ((pathname === '/api/backends' || pathname === '/api/node/backends') && req.method === 'GET') {
-    proxyGet('/api/backends', res);
     return;
   }
 
@@ -210,7 +238,17 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 4. Default Not Found
+  // Health is not a peer. /api/node/* stays on this process. Everything else calls Python.
+  if (
+    pathname !== '/health' &&
+    pathname !== '/api/health' &&
+    pathname !== '/api/node/health' &&
+    !pathname.startsWith('/api/node/')
+  ) {
+    proxyToPython(req, res);
+    return;
+  }
+
   res.writeHead(404, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: `Path ${pathname} not found on Node agent gateway` }));
 });
