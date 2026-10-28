@@ -10,6 +10,8 @@
     "dev:api": "python -m uvicorn server.main:app --reload --app-dir . --host 127.0.0.1 --port 8000",
     "dev:node": "node cli/node_gateway.mjs",
     "build": "tsc && vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
     "deploy:hosting": "npm run build && firebase deploy --only hosting --project zerogravity-ab52d --non-interactive",
     "deploy:functions": "firebase deploy --only functions:poor-man-ai --project zerogravity-ab52d --non-interactive",
     "preview": "vite preview",

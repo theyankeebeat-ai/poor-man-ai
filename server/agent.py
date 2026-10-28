@@ -334,16 +334,29 @@ async def run_web_only_agent(
     max_steps: int = 8,
     history: list[Turn] | None = None,
     thought: dict[str, Any] | None = None,
+    prior: list[tuple[str, str]] | None = None,
+    flow_done: bool = False,
 ) -> AsyncIterator[str]:
     t0 = time.perf_counter()
     turns = history or []
     plan: Plan = plan_from(message, turns)
     thought = thought or route(message, turns)
     cap = min(max_steps, int(thought.get("max_steps") or max_steps))
-    yield _sse({"type": "plan", "text": plan_text(thought, plan.goal, plan.notes, plan.search_queries)})
-    yield _sse({"type": "plan", "text": f"max_steps={cap} mode={thought.get('mode')}"})
+    observations: list[tuple[str, str]] = list(prior or [])
+    if not flow_done:
+        from server.question_flow import emit_question_flow
 
+        async for item in emit_question_flow(message):
+            if isinstance(item, str):
+                yield item
+            else:
+                observations.append(item)
+        flow_done = True
     cheap = thought.get("cheap_text")
+    if cheap is None:
+        yield _sse({"type": "plan", "text": plan_text(thought, plan.goal, plan.notes, plan.search_queries)})
+        yield _sse({"type": "plan", "text": f"max_steps={cap} mode={thought.get('mode')}"})
+
     if cheap is not None:
         yield _sse(
             {
@@ -356,16 +369,18 @@ async def run_web_only_agent(
             {
                 "type": "observation",
                 "name": f"brain:{thought.get('handler')}",
-                "text": f"One brain, handler={thought.get('handler')}. Skipped web and crew.",
+                "text": (
+                    f"One brain, handler={thought.get('handler')}. "
+                    "JSON tokenizer, parameter shards, dataset passages, and web-search MCPs already ran."
+                ),
             }
         )
         for i in range(0, len(cheap), 48):
             yield _sse({"type": "token", "text": cheap[i : i + 48]})
         yield _sse({"type": "done", "text": cheap})
-        yield _sse(_metrics(n_llm_calls=0, n_tools=0, t_ms=int((time.perf_counter() - t0) * 1000), cache=cache_stats()))
+        yield _sse(_metrics(n_llm_calls=0, n_tools=len(observations), t_ms=int((time.perf_counter() - t0) * 1000), cache=cache_stats()))
         return
 
-    observations: list[tuple[str, str]] = []
     if thought.get("follow_up") == "yes":
         yield _sse({"type": "tool", "name": "memory_search", "args": {"query": message}})
         mem = await run_tool("memory_search", {"query": message})
@@ -381,7 +396,14 @@ async def run_web_only_agent(
         yield _sse({"type": "observation", "name": "consult_knowledge", "text": kobs[:2000]})
         observations.append(("consult_knowledge", kobs[:2000]))
 
-    async for item in gather(plan, max_steps=cap, history=turns):
+    from server.question_flow import web_already_covered
+
+    async for item in gather(
+        plan,
+        max_steps=cap,
+        history=turns,
+        web_covered=web_already_covered(observations, str(thought.get("mode") or plan.mode or "")),
+    ):
         if isinstance(item, str):
             yield item
         else:
@@ -493,6 +515,15 @@ async def run_agent(
     else:
         cap = min(cap, int(thought.get("max_steps") if thought.get("max_steps") is not None else cap))
 
+    flow_obs: list[tuple[str, str]] = []
+    from server.question_flow import emit_question_flow
+
+    async for item in emit_question_flow(message):
+        if isinstance(item, str):
+            yield item
+        else:
+            flow_obs.append(item)
+
     replay_key = "answer"
     replay_parts = (message, *(t.text[:200] for t in turns[-2:]))
     # Never replay cache over a cheap local answer (math / folder peek / howto templates).
@@ -521,7 +552,14 @@ async def run_agent(
         )
         return
     if not client or thought.get("skip_grok"):
-        async for line in run_web_only_agent(message, max_steps=max(cap, 1) if not thought.get("skip_grok") else 1, history=turns, thought=thought):
+        async for line in run_web_only_agent(
+            message,
+            max_steps=max(cap, 1) if not thought.get("skip_grok") else 1,
+            history=turns,
+            thought=thought,
+            prior=flow_obs,
+            flow_done=True,
+        ):
             yield line
         return
 
@@ -550,8 +588,11 @@ async def run_agent(
     writer = chat_model()
     planner = plan_model()
     final_text = ""
-    observations: list[tuple[str, str]] = []
+    observations: list[tuple[str, str]] = list(flow_obs)
     planned = False
+    if flow_obs:
+        brief = "\n".join(f"{name}: {text[:500]}" for name, text in flow_obs)
+        messages.append({"role": "assistant", "content": "Already ran on this question:\n" + brief[:4000]})
 
     if mode == "code":
         yield _sse({"type": "tool", "name": "workspace_info", "args": {}})
@@ -717,7 +758,14 @@ async def run_agent(
                     for tok in ("401", "403", "unauthenticated", "bad-credentials", "invalid_api_key", "unauthorized")
                 ):
                     yield _sse({"type": "plan", "text": "LLM credentials unavailable — falling back to autonomous local/web orchestrator."})
-                    async for line in run_web_only_agent(message, max_steps=max(cap, 1), history=turns, thought=thought):
+                    async for line in run_web_only_agent(
+                        message,
+                        max_steps=max(cap, 1),
+                        history=turns,
+                        thought=thought,
+                        prior=flow_obs,
+                        flow_done=True,
+                    ):
                         yield line
                     return
                 raise

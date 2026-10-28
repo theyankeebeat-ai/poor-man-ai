@@ -118,9 +118,19 @@ def digest_obs(name: str, text: str, limit: int = 700) -> str:
     if name in {"run_cmd", "read_file", "grep", "git_diff", "git_status", "list_dir"}:
         limit = max(limit, 2500)
     raw = text or ""
-    if name in {"web_search", "followup_search", "gap_search"}:
+    if name in {
+        "web_search",
+        "followup_search",
+        "gap_search",
+        "duckduckgo-ai-search-mcp",
+        "google-ai-search-mcp",
+        "bing-copilot-search-mcp",
+        "yandex-ai-search-mcp",
+    }:
         try:
             data = json.loads(raw)
+            if isinstance(data, dict) and isinstance(data.get("hits"), list):
+                data = data["hits"]
             if isinstance(data, list):
                 lines = []
                 for item in data[:6]:

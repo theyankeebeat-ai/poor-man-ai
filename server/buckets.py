@@ -410,4 +410,58 @@ def read_parameter_row(name: str, row: int, root: Path | None = None) -> dict[st
     payload = json.loads(raw.decode("utf-8"))
     payload["bucket"] = bucket
     payload["file"] = relative
+    payload["nbytes"] = nbytes
     return payload
+
+
+def read_dataset_passages(query: str, limit: int = 3, root: Path | None = None) -> dict[str, Any]:
+    """Seek matching WikiText JSONL lines by the sqlite offset. Does not load the shard."""
+    text = (query or "").strip()
+    if not text or len(text) > 500:
+        raise ValueError("Query must contain 1 to 500 characters")
+    if not 1 <= limit <= 20:
+        raise ValueError("limit must be between 1 and 20")
+    base = root or HF_DIR
+    _index, sqlite_path = index_paths(base)
+    if not sqlite_path.is_file():
+        raise FileNotFoundError("Bucket index is not built")
+    match = _match(text)
+    rows: list[tuple[Any, ...]] = []
+    if match:
+        with sqlite3.connect(sqlite_path) as conn:
+            try:
+                rows = conn.execute(
+                    """
+                    SELECT p.split, p.bucket, p.file, p.offset, p.nbytes
+                    FROM passage_fts
+                    JOIN passages p ON p.id = passage_fts.rowid
+                    WHERE passage_fts MATCH ?
+                    LIMIT ?
+                    """,
+                    (match, limit),
+                ).fetchall()
+            except sqlite3.OperationalError:
+                rows = []
+    passages: list[dict[str, Any]] = []
+    for split, bucket, relative, offset, nbytes in rows:
+        if nbytes < 1 or nbytes > 2_000_000 or offset < 0:
+            raise ValueError("Passage location is not usable")
+        path = resolve_bucket_file(base, relative)
+        with path.open("rb") as handle:
+            handle.seek(offset)
+            raw = handle.read(nbytes)
+        if len(raw) != nbytes:
+            raise ValueError("Passage is shorter than the index")
+        payload = json.loads(raw.decode("utf-8"))
+        body = str(payload.get("text") or "").strip()
+        passages.append({
+            "kind": "passage",
+            "split": payload.get("split") or split,
+            "bucket": bucket,
+            "file": relative,
+            "offset": offset,
+            "bytes": nbytes,
+            "i": payload.get("i"),
+            "text": body[:280],
+        })
+    return {"ready": True, "query": text, "passages": passages}

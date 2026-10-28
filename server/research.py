@@ -122,6 +122,7 @@ async def gather(
     plan: Plan,
     max_steps: int,
     history: list[Turn] | None = None,
+    web_covered: bool = False,
 ) -> AsyncIterator[str | tuple[str, str]]:
     """Search + weather + media + reads in parallel waves. Yields SSE and (name, obs)."""
     steps = 0
@@ -204,7 +205,7 @@ async def gather(
     }
     has_finance = any(name == "financial_quote" for name, _, _ in wave)
     skip_search = (bool(media_done) or has_finance) and not OUTDOOR_RE.search(plan.goal)
-    if not skip_search:
+    if not skip_search and not web_covered:
         for q in plan.search_queries:
             if steps >= max_steps:
                 break
@@ -272,8 +273,8 @@ async def gather(
         yield (name, clip)
         obs.append((name, clip))
 
-    if skip_search:
-        # Media tools already produced the primary evidence — skip gap SERP noise.
+    if skip_search or web_covered:
+        # Media tools, or the four web-search MCPs, already covered the open web.
         return
 
     # One follow-up search built from the first page, then the gap block.

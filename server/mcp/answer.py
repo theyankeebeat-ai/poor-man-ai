@@ -45,12 +45,31 @@ def _citations(observations: list[tuple[str, str]]) -> list[str]:
     return urls[:8]
 
 
+_SEARCH_OBS = {
+    "web_search",
+    "duckduckgo-ai-search-mcp",
+    "google-ai-search-mcp",
+    "bing-copilot-search-mcp",
+    "yandex-ai-search-mcp",
+}
+
+
+def _hit_rows(text: str) -> list[dict[str, Any]]:
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return parse_hits(text)
+    if isinstance(data, dict) and isinstance(data.get("hits"), list):
+        return [item for item in data["hits"] if isinstance(item, dict)]
+    return parse_hits(text)
+
+
 def _hits(observations: list[tuple[str, str]]) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
     for name, text in observations:
-        if name != "web_search":
+        if name not in _SEARCH_OBS:
             continue
-        for h in parse_hits(text):
+        for h in _hit_rows(text):
             sn = _plain(h.get("snippet") or "")
             if _ok_sent(sn) or (sn and not _JUNK.search(sn)):
                 out.append(
