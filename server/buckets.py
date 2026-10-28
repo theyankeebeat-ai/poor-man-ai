@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import sqlite3
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
-HF_DIR = ROOT / "hf"
+HF_DIR = Path(os.getenv("HF_SNAPSHOT_DIR", str(ROOT / "hf")))
 BUCKET_LIMIT_BYTES = 50_000_000
 FILE_LIMIT_BYTES = 33_554_432
 BUCKET_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,35}$")

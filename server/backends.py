@@ -260,11 +260,17 @@ def sync_hf() -> dict[str, Any]:
         app_buckets = _ensure_named(client, appwrite, app_names, "appwrite")
         sup_buckets = _ensure_named(client, supabase, sup_names, "supabase")
         quiet = {"Appwrite key is not set", "Supabase key is not set"}
+        app_blocked = False
+        sup_blocked = False
         for name, result in {**{f"appwrite:{key}": value for key, value in app_buckets.items()}, **{f"supabase:{key}": value for key, value in sup_buckets.items()}}.items():
             if not result.get("ok"):
                 detail = str(result.get("detail") or "unavailable")
                 if detail not in quiet:
                     errors.append(f"{name}: {detail}")
+                    if name.startswith("appwrite:"):
+                        app_blocked = True
+                    else:
+                        sup_blocked = True
         for relative, data in blobs:
             app_name = remote_bucket(appwrite["bucket"], relative)
             sup_name = remote_bucket(supabase["bucket"], relative)
@@ -275,28 +281,30 @@ def sync_hf() -> dict[str, Any]:
                         uploaded.append(f"appwrite:{app_name}:{changed}")
                 except Exception as exc:
                     errors.append(str(exc))
+                    app_blocked = True
             if sup_buckets.get(sup_name, {}).get("ok"):
                 try:
                     _upload_supabase(client, {**supabase, "bucket": sup_name}, relative, data)
                     uploaded.append(f"supabase:{sup_name}:{relative}")
                 except Exception as exc:
                     errors.append(str(exc))
-        # Publish the inventory only after all files have been uploaded successfully.
-        if not errors:
-            if app_buckets.get(appwrite["bucket"], {}).get("ok"):
-                _upload_appwrite(
-                    client,
-                    appwrite,
-                    "manifest.json",
-                    json.dumps(_manifest(appwrite["bucket"])).encode("utf-8"),
-                )
-            if sup_buckets.get(supabase["bucket"], {}).get("ok"):
-                _upload_supabase(
-                    client,
-                    supabase,
-                    "manifest.json",
-                    json.dumps(_manifest(supabase["bucket"])).encode("utf-8"),
-                )
+                    sup_blocked = True
+        # Each provider gets a manifest when its own uploads succeeded.
+        # An Appwrite plan limit must not hide a finished Supabase snapshot.
+        if not app_blocked and app_buckets.get(appwrite["bucket"], {}).get("ok"):
+            _upload_appwrite(
+                client,
+                appwrite,
+                "manifest.json",
+                json.dumps(_manifest(appwrite["bucket"])).encode("utf-8"),
+            )
+        if not sup_blocked and sup_buckets.get(supabase["bucket"], {}).get("ok"):
+            _upload_supabase(
+                client,
+                supabase,
+                "manifest.json",
+                json.dumps(_manifest(supabase["bucket"])).encode("utf-8"),
+            )
     return {
         "local_files": len(files),
         "uploaded": len(uploaded),

@@ -40,11 +40,22 @@ def _sse(payload: dict[str, Any]) -> str:
     return json.dumps(payload, ensure_ascii=False) + "\n"
 
 
+def _ensure_snapshot() -> None:
+    """Download the JSON buckets once when this process does not have them yet."""
+    path = HF_DIR / "buckets" / "tokenizer" / "vocab.jsonl"
+    if path.is_file():
+        return
+    from server.hf_storage import restore_snapshot
+
+    restore_snapshot(HF_DIR)
+
+
 def _load_vocab() -> dict[str, int]:
     global _vocab
     with _vocab_lock:
         if _vocab is not None:
             return _vocab
+        _ensure_snapshot()
         path = HF_DIR / "buckets" / "tokenizer" / "vocab.jsonl"
         vocab: dict[str, int] = {}
         with path.open(encoding="utf-8") as handle:
