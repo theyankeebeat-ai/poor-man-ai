@@ -7,3 +7,4 @@ apps/brain/brain
 *.part
 .env
 .env.local
+.firebase

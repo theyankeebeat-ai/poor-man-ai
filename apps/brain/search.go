@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"html"
 	"io"
@@ -217,19 +218,13 @@ func weatherReport(message string) (string, []webHit) {
 	if place == "" {
 		place = strings.TrimSpace(message)
 	}
-	var geo struct {
-		Results []struct {
-			Name      string  `json:"name"`
-			Country   string  `json:"country"`
-			Latitude  float64 `json:"latitude"`
-			Longitude float64 `json:"longitude"`
-		} `json:"results"`
+	g, err := locatePlace(place)
+	if err != nil {
+		if errors.Is(err, errPlaceNotFound) {
+			return "I could not find that place in the Open-Meteo gazetteer.", nil
+		}
+		return "Open-Meteo did not respond, so I could not look up the weather.", nil
 	}
-	geoURL := "https://geocoding-api.open-meteo.com/v1/search?count=1&name=" + url.QueryEscape(place)
-	if getJSON(geoURL, &geo) != nil || len(geo.Results) == 0 {
-		return "I could not find that place in the Open-Meteo gazetteer.", nil
-	}
-	g := geo.Results[0]
 	unit := "celsius"
 	speed := "kmh"
 	label := "°C"
@@ -276,6 +271,174 @@ func weatherCode(code int) string {
 	default:
 		return "conditions"
 	}
+}
+
+var errPlaceNotFound = errors.New("place not found")
+
+type geoPlace struct {
+	Name      string
+	Country   string
+	Code      string
+	Admin1    string
+	Latitude  float64
+	Longitude float64
+	Pop       int
+	Feature   string
+}
+
+type placeAttempt struct {
+	name string
+	hint string
+}
+
+// countryAlias maps everyday names that do not appear inside the Open-Meteo country string.
+var countryAlias = map[string]string{
+	"usa": "US", "us": "US", "america": "US", "united states": "US", "united states of america": "US",
+	"uk": "GB", "u.k": "GB", "britain": "GB", "great britain": "GB", "england": "GB", "scotland": "GB", "wales": "GB", "united kingdom": "GB",
+	"uae": "AE", "united arab emirates": "AE",
+	"south korea": "KR", "korea": "KR", "north korea": "KP",
+	"russia": "RU", "russian federation": "RU",
+	"czech republic": "CZ", "czechia": "CZ",
+	"holland": "NL", "the netherlands": "NL",
+}
+
+func locatePlace(place string) (geoPlace, error) {
+	var sawOK bool
+	var lastErr error
+	for _, attempt := range placeAttempts(place) {
+		hits, err := geoSearch(attempt.name)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		sawOK = true
+		if attempt.hint == "" {
+			for _, hit := range hits {
+				if hitCovers(hit, attempt.name) {
+					return hit, nil
+				}
+			}
+			continue
+		}
+		if best, ok := pickGeo(hits, attempt.hint); ok {
+			return best, nil
+		}
+	}
+	if !sawOK && lastErr != nil {
+		return geoPlace{}, lastErr
+	}
+	return geoPlace{}, errPlaceNotFound
+}
+
+func placeAttempts(place string) []placeAttempt {
+	place = strings.Trim(strings.TrimSpace(place), "?.!")
+	place = strings.ReplaceAll(place, ",", " ")
+	place = collapseSpace(place)
+	fields := strings.Fields(place)
+	if len(fields) == 0 {
+		return nil
+	}
+	out := []placeAttempt{{name: strings.Join(fields, " ")}}
+	for n := 1; n <= 3 && n < len(fields); n++ {
+		name := strings.Join(fields[:len(fields)-n], " ")
+		if len([]rune(name)) < 2 {
+			continue
+		}
+		out = append(out, placeAttempt{
+			name: name,
+			hint: strings.Join(fields[len(fields)-n:], " "),
+		})
+	}
+	return out
+}
+
+func geoSearch(name string) ([]geoPlace, error) {
+	var geo struct {
+		Results []struct {
+			Name        string  `json:"name"`
+			Country     string  `json:"country"`
+			CountryCode string  `json:"country_code"`
+			Admin1      string  `json:"admin1"`
+			Latitude    float64 `json:"latitude"`
+			Longitude   float64 `json:"longitude"`
+			Population  int     `json:"population"`
+			FeatureCode string  `json:"feature_code"`
+		} `json:"results"`
+	}
+	raw := "https://geocoding-api.open-meteo.com/v1/search?count=10&name=" + url.QueryEscape(name)
+	if err := getJSON(raw, &geo); err != nil {
+		return nil, err
+	}
+	out := make([]geoPlace, 0, len(geo.Results))
+	for _, row := range geo.Results {
+		out = append(out, geoPlace{
+			Name: row.Name, Country: row.Country, Code: row.CountryCode, Admin1: row.Admin1,
+			Latitude: row.Latitude, Longitude: row.Longitude, Pop: row.Population, Feature: row.FeatureCode,
+		})
+	}
+	return out, nil
+}
+
+func pickGeo(hits []geoPlace, hint string) (geoPlace, bool) {
+	var matched []geoPlace
+	for _, hit := range hits {
+		if countryMatches(hit, hint) {
+			matched = append(matched, hit)
+		}
+	}
+	if len(matched) == 0 {
+		return geoPlace{}, false
+	}
+	best := matched[0]
+	for _, hit := range matched[1:] {
+		if hit.Feature == "PPLC" && best.Feature != "PPLC" {
+			best = hit
+			continue
+		}
+		if hit.Feature == best.Feature && hit.Pop > best.Pop {
+			best = hit
+		}
+	}
+	return best, true
+}
+
+func countryMatches(hit geoPlace, hint string) bool {
+	h := strings.ToLower(strings.Trim(strings.TrimSpace(hint), "."))
+	if h == "" {
+		return true
+	}
+	if alias, ok := countryAlias[h]; ok && strings.EqualFold(alias, hit.Code) {
+		return true
+	}
+	country := strings.ToLower(hit.Country)
+	admin := strings.ToLower(hit.Admin1)
+	if strings.EqualFold(h, hit.Country) || strings.EqualFold(h, hit.Code) || strings.EqualFold(h, hit.Admin1) {
+		return true
+	}
+	if country != "" && (strings.Contains(country, h) || strings.Contains(h, country)) {
+		return true
+	}
+	if admin != "" && (admin == h || strings.Contains(admin, h)) {
+		return true
+	}
+	return false
+}
+
+func hitCovers(hit geoPlace, phrase string) bool {
+	blob := strings.ToLower(strings.Join([]string{hit.Name, hit.Country, hit.Admin1, hit.Code}, " "))
+	for _, word := range strings.Fields(strings.ToLower(phrase)) {
+		word = strings.Trim(word, ".,")
+		if word == "" {
+			continue
+		}
+		if alias, ok := countryAlias[word]; ok && strings.EqualFold(alias, hit.Code) {
+			continue
+		}
+		if !strings.Contains(blob, word) {
+			return false
+		}
+	}
+	return true
 }
 
 func getJSON(raw string, dest any) error {

@@ -3,3 +3,4 @@ export * from './DuckDuckGoAISearchMCP';
 export * from './GoogleAISearchMCP';
 export * from './BingCopilotSearchMCP';
 export * from './YandexAISearchMCP';
+export * from './BraveAskSearchMCP';

@@ -191,12 +191,12 @@ func queriesFor(message, goal, mode string) []string {
 }
 
 func placeFrom(message string) string {
-	re := regexp.MustCompile(`(?i)\b(?:in|for|at)\s+([A-Z][A-Za-z .'-]{1,40})`)
+	re := regexp.MustCompile(`(?i)\b(?:in|for|at)\s+([A-Za-z][A-Za-z .'’,-]{1,60})`)
 	m := re.FindStringSubmatch(message)
 	if m == nil {
 		return ""
 	}
-	return strings.TrimSpace(m[1])
+	return strings.Trim(strings.TrimSpace(m[1]), " .,")
 }
 
 func lastUser(history []turn) string {
