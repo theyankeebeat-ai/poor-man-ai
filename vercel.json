@@ -1,10 +1,12 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "services": {
-    "poor-man-ai": {
-      "root": ".",
-      "framework": "vite",
-      "buildCommand": "yarn build",
-      "outputDirectory": "dist"
+    "brain": {
+      "root": "apps/brain",
+      "runtime": "container"
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": { "service": "brain" } }
+  ]
 }

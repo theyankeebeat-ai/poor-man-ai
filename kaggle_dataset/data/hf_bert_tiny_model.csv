@@ -1,2 +1,0 @@
-model_id,source_dir,weights_file,weights_bytes,tokenizer_file,hidden_size,num_hidden_layers,num_attention_heads,intermediate_size,vocab_size,max_position_embeddings,type_vocab_size,hidden_act,parameter_count,under_25mb
-prajjwal1/bert-tiny,hf/prajjwal1-bert-tiny,pytorch_model.bin,17756393,vocab.txt,128,2,2,512,30522,512,2,gelu,4385920,1

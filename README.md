@@ -1,108 +1,44 @@
-# Poor Man AI: Unified Autonomous Orchestrator & Research Engine
+# Poor Man AI
 
-**Poor Man AI** unites the autonomous multi-agent reasoning, workspace coding tools, and FastAPI/MCP backend from **Grok Cli Ai Build** with the modular, multi-engine UI dashboard and IndexedDB indexing system from **TSX Ai**.
+Next.js cockpit and a Go brain. There is no Python in this tree.
 
----
+The chat page still speaks NDJSON. `POST /chat` returns one JSON object per line: `plan`, `tool`, `observation`, `token`, `done`, and `error`.
 
-## 🌟 What Works & Key Merged Features
+## What is smarter than the archive
 
-1. **Autonomous Multi-Agent & Research Backend (from Grok Cli Ai Build)**:
-   - **Local Brain & Heuristic Routing**: Works even without API keys via local brain routing (math, memory recall, Jina web search, local reasoner).
-   - **MCP Skills & Knowledge Playbooks**: Dynamic SOPs, debate protocols, source trust guidelines, and hook lifecycle execution in `server/mcp/`.
-   - **Workspace Code Agent**: Autonomous code editing, file diffs, patch applications, terminal command runs, and git integration under `mode=code`.
-   - **Neural Banks & Crew Specialist Mesh**: Dedicated routing networks and specialist agents coordinating on a shared blackboard.
-   - **Voice & TTS**: Integration with Edge TTS speech synthesis.
+The archive ranked WikiText-2 with BERT-tiny (about 4.4 million parameters) and did not split a turn into questions. This version:
 
-2. **Unified Dashboard & UI Engines (from TSX Ai)**:
-   - **Agent Workflow**: Interactive step-by-step pipeline view with cognitive traces, live tool calls, status tracking, and raw terminal view.
-   - **Chat Assistant**: Real-time NDJSON streaming connected directly to `http://127.0.0.1:8000/chat` with toggleable Research / Code modes, file attachments, and live thought accordions.
-   - **Research Console**: Full Grok research agent interface with history rail, weather cards, voice synthesis, and search hit citations.
-   - **Web AI & Web Browser Engines**: Multi-MCP query formulation (DuckDuckGo, Google AI Overview, Bing Copilot, Yandex Neuro) with fallback web retrievers.
-   - **Database Engine**: Local IndexedDB persistent store for categorization, tags, queries, and summaries.
-   - **Brain Engine**: Live telemetry connected to backend memory (`/memory`) and neural routing layers (`/mcp/neurons`).
-   - **Server Engine**: Real-time health polling (`/health`) and daemon service statuses for the FastAPI cluster.
-   - **Skill & Tools Engines**: Live introspection into registered Python tools (`/tools`), MCP skills (`/mcp/skills`), and knowledge packs (`/mcp/knowledge`).
-   - **Dynamic Theming**: Multi-theme switcher (Cyber Dark, Midnight Deep Blue, Matrix Emerald, Dracula, Light).
+- Loads **minishlab/potion-base-8M** (7,559,168 static parameters, MIT). The published float32 file is about 30 MB. `npm run prepare:data` writes a per-row int8 matrix under 25 MB. Inference is WordPiece, mean-pool, then L2. These weights were distilled from `BAAI/bge-base-en-v1.5`.
+- Indexes **SQuAD 2.0** passages (`rajpurkar/squad_v2`, CC BY-SA 4.0). The prepared slice is 20,233 unique Wikipedia contexts, 2,371,178 whitespace tokens, and 16,845,988 bytes. WikiText-2 was a language-model dump with no answer spans.
+- Ranks with BM25 (`k1=1.5`, `b=0.75`), keeps 32 hits, then fuses that list with cosine rank (reciprocal rank fusion).
+- Answers each real question in a turn, up to three, and drops a leading greeting. The reply is rendered with a Jinja template (`apps/brain/templates/answer.jinja`, via pongo2).
+- Calls **grok-4.7** at `https://api.x.ai/v1/responses` only when `XAI_API_KEY` is set and thinking is medium or high. The prompt is limited to retrieved evidence. Low thinking, math, greetings, and memory stay local.
+- Uses the Wikipedia API and Google News RSS. Open-Meteo answers weather. The browser speech engine speaks. Shell commands are not run.
 
----
+Router nets are 24×64×32×1 (3,713 weights each). They rank layers and crew roles. They do not write the answer. The 1B and 3B cards on the architecture page are arithmetic estimates. They are not loaded.
 
-## 🚀 Quick Start
+## Run locally
 
-### 1. Backend Setup
-Ensure you have the required Python dependencies:
 ```powershell
-cd "C:\Users\freed\OneDrive\Desktop\Poor man ai"
-pip install -r server/requirements.txt
-```
-*(Optional: Copy `.env.example` to `.env` and configure `XAI_API_KEY`, `OPENAI_API_KEY`, etc. if available. Without keys, the local reasoning engine will still execute.)*
-
-### 2. Launch the Application
-Run both Vite frontend (port 5173) and FastAPI backend (port 8000) concurrently:
-```powershell
-yarn dev
-```
-Or start them individually:
-- **Frontend only**: `yarn dev:web` (http://localhost:5173)
-- **Backend API only**: `yarn dev:api` (http://127.0.0.1:8000)
-
-### 3. Build for Production
-```powershell
-yarn build
+npm install
+npm install --prefix apps/web
+npm run prepare:data
+npm run dev
 ```
 
-### 4. Prepare for Kaggle.com (Dataset & Datasheet)
-Export and sanitize all autonomous agent telemetry, persistent memory facts, neural routing topologies, and code audit traces into Kaggle-ready CSV/JSONL formats with standardized Gebru et al. Datasheets:
-```powershell
-yarn prepare:kaggle
-```
-Or directly with Python:
-```powershell
-python scripts/prepare_kaggle_dataset.py
-python scripts/generate_notebook.py
-```
-This generates the packaged `kaggle_dataset/` directory with:
-- `dataset-metadata.json` (official Kaggle CLI metadata)
-- `README.md` / `KAGGLE_DATASHEET.md` (publication-standard Datasheet for Datasets)
-- `data/` (sanitized tabular CSVs & JSONL streams)
-- `poor_man_ai_eda.ipynb` (1-click Kaggle starter analysis & ML baseline notebook)
+Open http://localhost:3000/chat. The page stays on Next.js. Browser calls go to `/b/...`, and Next rewrites that prefix to the Go brain on http://127.0.0.1:8000. Direct calls to port 8000 still use `/chat` and `/health`.
 
-## Model runtime and cloud storage
+`GET /health` should return `"status": "ok"`. `2+2` should answer `2+2 = **4**.` with `n_llm_calls` 0.
 
-Install `server/requirements.txt`, then use `POST /api/webai/hf` with
-`{"query":"Roman history","top_k":3}`. The runtime loads the local
-`prajjwal1/bert-tiny` checkpoint and its matching Hugging Face BERT tokenizer.
-It shortlists WikiText **train** passages by token overlap, then ranks up to
-16 candidates using mean-pooled BERT embeddings and cosine similarity.
-Inference uses batches of four with a 128-token limit to bound CPU and memory use.
-Validation and test splits are reserved for evaluation. This is retrieval;
-it does not fine-tune the model or generate chat prose. The agent can call
-`hf_search` to access the same model. `/health` reports whether weights have
-actually loaded. The first model request loads the snapshot lazily.
+## Hosting
 
-`python scripts/build_json_buckets.py` writes JSON copies of the checkpoint,
-WikiText splits, tokenizer, telemetry, and domain cards into `hf/buckets/`.
-Each bucket stays under 50 MB. `bucket_find` reads `index.json` and
-`lookup.sqlite` so the local model can open the right file without scanning
-the shards. The encoder still loads `pytorch_model.bin`.
+Firebase Hosting (Spark, site `zerogravity-ab52d`) serves only the static Next.js export. `npm run build:hosting` writes `apps/web/out`. `npm run deploy:hosting` publishes that folder. The browser does not call `/b` on the hosted site. It probes `/health` and uses the first brain that answers:
 
-`python -m server.backends` synchronizes `hf/` to the private Supabase and
-Appwrite buckets and publishes a SHA-256 manifest. Files under
-`hf/buckets/<name>/` upload to their own bucket (`<primary>-<name>`).
-`HF_STORAGE_PROVIDER=auto`
-restores and verifies that snapshot from Supabase, falling back to Appwrite.
-Use `local` for files already on disk, or name one provider explicitly.
-Set `HF_SNAPSHOT_DIR` to a writable cache directory on Render. Credentials
-belong only in server environment variables; never put secret keys in `VITE_*`.
+1. Vercel container (`https://poor-man-ai.vercel.app`) — the Go brain, larger run capacity
+2. Render (`https://poor-man-ai.onrender.com`) — the same Go brain on the free Oregon worker
+3. Supabase function `api` — streams the request to Vercel, then Render
+4. Appwrite function `score` — same proxy, on `https://6abf29600005f72b00bb.fra.appwrite.run`
 
-`render.yaml` describes a standalone backend deployment. The existing
-`simple-ai` production repository nests this backend under `Poor man ai/`;
-run `python scripts/prepare_render_update.py <deployment-checkout>` to prepare
-the targeted repair there while preserving its bucket routes and frontend.
-Its build command must install the nested backend requirements and
-`buckets/requirements.txt`; its start command must use
-`--app-dir "Poor man ai"` and bind `0.0.0.0:$PORT`.
+`vercel.json` is the brain only (Vercel Services, beta). The Next.js app is not deployed there. Local `npm run dev` still rewrites `/b` to `http://127.0.0.1:8000`.
 
-Architecture presets remain estimates and cannot resize loaded weights.
-`POST /model/train` returns 501 until a real training worker is implemented.
-Run runtime checks with `python -m pytest server/test_hf_runtime.py`.
-
+Copy `.env.example` to `.env` only if you want Grok in the loop. Do not commit the key. The key stays on the Go process.

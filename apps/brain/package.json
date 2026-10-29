@@ -1,0 +1,9 @@
+{
+  "name": "poor-man-ai-brain",
+  "private": true,
+  "scripts": {
+    "dev": "go run .",
+    "test": "go test ./...",
+    "prepare": "go run ./cmd/prepare"
+  }
+}
