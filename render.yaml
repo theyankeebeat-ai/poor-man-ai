@@ -1,0 +1,15 @@
+# The live service is already a Python runtime, and Render will not change that
+# environment in place. The build installs Go and starts the brain binary.
+services:
+  - type: web
+    name: poor-man-ai
+    runtime: python
+    plan: free
+    region: oregon
+    branch: master
+    healthCheckPath: /health
+    buildCommand: curl -fsSL https://go.dev/dl/go1.25.4.linux-amd64.tar.gz -o /tmp/go.tgz && tar -C /tmp -xzf /tmp/go.tgz && export PATH=/tmp/go/bin:$PATH && cd apps/brain && CGO_ENABLED=0 go build -o brain .
+    startCommand: cd apps/brain && ./brain
+    envVars:
+      - key: WEB_CONCURRENCY
+        value: "1"

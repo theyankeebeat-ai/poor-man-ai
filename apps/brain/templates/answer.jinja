@@ -1,0 +1,11 @@
+{% for block in blocks -%}
+{{ block.heading }}{{ block.lead }}
+{%- if block.support %}
+
+{{ block.support }}{% endif %}
+
+{% endfor -%}
+{%- if citations %}
+Citations:
+{{ citations }}
+{%- endif %}

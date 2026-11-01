@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "brain": {
+      "root": "apps/brain",
+      "runtime": "container"
+    }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": { "service": "brain" } }
+  ]
+}

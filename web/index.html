@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Better Poor Man AI</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="side-head">
+        <h2>Chats</h2>
+        <button type="button" id="new-chat">New chat</button>
+      </div>
+      <ul id="sessions" class="sessions"></ul>
+    </aside>
+    <main class="chat">
+      <header class="top">
+        <div>
+          <h1>Better Poor Man AI</h1>
+          <p class="note">Static cockpit over the Go brain: potion-base-8M retrieval, SQuAD passages, web search, weather, and optional grok-4.7.</p>
+        </div>
+        <div class="themes" role="group" aria-label="Theme">
+          <button type="button" data-theme-choice="dark" aria-pressed="true">Dark</button>
+          <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
+          <button type="button" data-theme-choice="sand" aria-pressed="false">Sand</button>
+        </div>
+      </header>
+      <div id="log" class="log" aria-live="polite"></div>
+      <form id="composer" class="composer">
+        <label for="message">Message</label>
+        <textarea id="message" rows="3" placeholder="Ask something"></textarea>
+        <button type="submit" id="send">Send</button>
+      </form>
+      <footer class="status">
+        <span id="brain-status"></span>
+      </footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

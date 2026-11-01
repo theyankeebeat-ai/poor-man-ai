@@ -1,0 +1,16 @@
+node_modules
+.next
+web/out
+apps/brain/data/raw
+apps/brain/brain
+apps/brain/data/uploads/*
+!apps/brain/data/uploads/.gitkeep
+*.part
+.env
+.env.local
+.firebase
+__pycache__/
+.venv/
+*.pyc
+.pytest_cache/
+_archive_python_server/

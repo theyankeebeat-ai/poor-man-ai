@@ -1,0 +1,9 @@
+{
+  "name": "rajpurkar/squad_v2",
+  "source": "https://huggingface.co/datasets/rajpurkar/squad_v2",
+  "license": "CC BY-SA 4.0",
+  "note": "Unique Wikipedia passages from SQuAD 2.0. Questions repeat a context, so contexts are deduped before indexing. This is a question-answering corpus, not a language-model dump.",
+  "tokens": 2371178,
+  "bytes": 16845988,
+  "passages": 20233
+}
