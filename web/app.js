@@ -6,7 +6,7 @@
     "https://poor-man-ai.vercel.app",
     "https://poor-man-ai.onrender.com",
     "https://wqrriztbsifgytjzippi.supabase.co/functions/v1/api",
-    "https://6abf29600005f72b00bb.fra.appwrite.run",
+    "https://poor-man-ai.fra.appwrite.run",
   ];
   var SOURCE_LABEL = {
     direct: "Direct answer",

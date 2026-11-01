@@ -1,1 +1,20 @@
-{"projectId":"6abf29600005f72b00bb"}
+{
+    "projectId": "poor-man-ai",
+    "endpoint": "https://fra.cloud.appwrite.io/v1",
+    "functions": [
+        {
+            "$id": "score",
+            "name": "Poor Man AI API",
+            "runtime": "python-3.12",
+            "path": "functions/score",
+            "entrypoint": "main.py",
+            "execute": [
+                "any"
+            ],
+            "enabled": true,
+            "logging": true,
+            "timeout": 60,
+            "commands": "pip install -r requirements.txt"
+        }
+    ]
+}

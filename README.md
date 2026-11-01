@@ -44,6 +44,6 @@ The hosted page probes `/health` and uses the first healthy brain:
 1. `https://poor-man-ai.vercel.app`
 2. `https://poor-man-ai.onrender.com`
 3. Supabase `api`
-4. Appwrite `score`
+4. Appwrite `score` (`https://poor-man-ai.fra.appwrite.run`)
 
 Copy `.env.example` to `.env` only if you want Grok in the loop. Do not commit the key.
