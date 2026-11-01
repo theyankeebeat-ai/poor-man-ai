@@ -20,7 +20,7 @@ User asks to learn / teach yourself / add a skill / remember a method / improve 
 1. `list_learned` — see what already exists; update in place if a near-match exists.
 2. `consult_knowledge` with `skill-learning` — follow the install rules.
 3. `web_search` 2–4 queries aimed at **methods** (how to X, checklist, framework), not random blogs.
-4. `read_url` on 1–3 high-trust pages (university, major style guides, official docs, Wikipedia method sections, NIH/CDC/BBC editorial standards, etc.). Skip login walls and SEO bait.
+4. `read_url` on 1–3 high-trust pages (university, major style guides, official docs, NIH/CDC/BBC editorial standards, etc.). Skip login walls and SEO bait.
 5. Distill into **steps the agent can execute with existing tools**. No fake tools. No model-training claims.
 6. Install:
    - Method the agent should follow mid-turn → `write_skill`

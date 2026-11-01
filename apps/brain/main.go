@@ -152,11 +152,17 @@ func readURL(w http.ResponseWriter, r *http.Request) {
 	if body.MaxChars == 0 {
 		body.MaxChars = 15000
 	}
+	if isWikipediaURL(body.URL) {
+		writeJSON(w, 400, map[string]any{
+			"error":  "Wikipedia is blocked as a source",
+			"url":    body.URL,
+			"method": "blocked",
+			"chars":  0,
+		})
+		return
+	}
 	page := readPage(body.URL, body.MaxChars)
 	method := "http"
-	if _, ok := wikiTitle(page.URL); ok && page.Text != "" {
-		method = "wikipedia-extract"
-	}
 	resp := map[string]any{
 		"title": page.Title, "description": clip(page.Text, 240), "url": page.URL,
 		"markdown": page.Text, "text": page.Text, "method": method, "chars": len(page.Text),

@@ -84,31 +84,13 @@ func runTurn(message string, history []turn, mode string, thinking string, emit 
 		}
 		searchText := resolveFollow(part, history)
 		q := focusQuery(searchText)
-		var localText []string
-		if corpus != nil {
-			hits := corpus.search(q, 4)
-			if len(hits) > 0 {
-				toolCalls++
-				emit(event{Type: "tool", Name: "rag_search", Args: map[string]any{"query": part, "k": 4}})
-				obs := make([]map[string]any, 0, len(hits))
-				for _, h := range hits {
-					obs = append(obs, map[string]any{"title": h.doc.Title, "url": h.doc.URL, "snippet": clip(h.doc.Text, 240)})
-					localText = append(localText, h.doc.Text)
-					sources = append(sources, source{Title: h.doc.Title, URL: h.doc.URL})
-				}
-				b, _ := json.Marshal(obs)
-				emit(event{Type: "observation", Name: "rag_search", Text: string(b)})
-			}
-		}
 		var webText []string
 		var newsHeads []string
 		var titled string
+		aiBacked := false
 		newsish := newsRE.MatchString(part) || newsRE.MatchString(searchText)
 		if th.NeedsWeb && thinking != "off" {
-			var found []webHit
-			for _, sq := range lookupQueries(searchText) {
-				found = append(found, webSearch(sq)...)
-			}
+			found := webSearch(searchText)
 			found = diversifyHits(part, rankHits(searchText, dedupeHits(found, 12)))
 			if len(found) > 8 {
 				found = found[:8]
@@ -117,37 +99,48 @@ func runTurn(message string, history []turn, mode string, thinking string, emit 
 			emit(event{Type: "tool", Name: "web_search", Args: map[string]any{"query": searchText}})
 			b, _ := json.Marshal(found)
 			emit(event{Type: "observation", Name: "web_search", Text: string(b)})
-			fetchN := th.Fetch
-			if thinking == "low" {
-				fetchN = min(fetchN, 1)
-			}
-			for i, hit := range found {
+			for _, hit := range found {
+				if isWikipediaURL(hit.URL) {
+					continue
+				}
 				sources = append(sources, source{Title: hit.Title, URL: hit.URL})
-				if hit.Snippet != "" {
-					webText = append(webText, hit.Snippet)
+				snippet := stripAnswerChrome(hit.Snippet, searchText)
+				if aiModeHit(hit) && snippet != "" {
+					aiBacked = true
+					if titled == "" && !newsish {
+						titled = snippet
+						snippet = ""
+					}
+				}
+				if snippet != "" {
+					webText = append(webText, snippet)
 				}
 				if newsish && strings.Contains(hit.URL, "news.google.com") && strings.TrimSpace(hit.Title) != "" {
 					newsHeads = append(newsHeads, strings.TrimRight(strings.TrimSpace(hit.Title), ".")+".")
 				}
-				if i >= fetchN {
-					continue
-				}
-				if !strings.Contains(hit.URL, "wikipedia.org") {
-					continue
-				}
-				page := readPage(hit.URL, 4000)
+			}
+		}
+		var localText []string
+		if !aiBacked && corpus != nil {
+			hits := corpus.search(q, 4)
+			if len(hits) > 0 {
 				toolCalls++
-				emit(event{Type: "tool", Name: "read_url", Args: map[string]any{"url": hit.URL}})
-				emit(event{Type: "observation", Name: "read_url", Text: clip(page.Text, 1200)})
-				if page.Text != "" {
-					webText = append(webText, page.Text)
-					// A news question must not be answered from the country article's opening definition.
-					if !newsish {
-						if sub := askedSubject(part); sub != "" && (fold(page.Title) == sub || fold(hit.Title) == sub) {
-							titled = page.Text
-						}
+				emit(event{Type: "tool", Name: "rag_search", Args: map[string]any{"query": part, "k": 4}})
+				obs := make([]map[string]any, 0, len(hits))
+				for _, h := range hits {
+					// SQuAD passages are local copies; never cite their Wikipedia URLs.
+					citeURL := h.doc.URL
+					if isWikipediaURL(citeURL) {
+						citeURL = ""
+					}
+					obs = append(obs, map[string]any{"title": h.doc.Title, "url": citeURL, "snippet": clip(h.doc.Text, 240)})
+					localText = append(localText, h.doc.Text)
+					if citeURL != "" {
+						sources = append(sources, source{Title: h.doc.Title, URL: citeURL})
 					}
 				}
+				b, _ := json.Marshal(obs)
+				emit(event{Type: "observation", Name: "rag_search", Text: string(b)})
 			}
 		}
 		chunks := make([]string, 0, len(localText)+len(webText)+2)
@@ -213,7 +206,7 @@ func headingFor(parts []string, part string) string {
 
 func firstURL(sources []source) string {
 	for _, s := range sources {
-		if s.URL != "" {
+		if s.URL != "" && !isWikipediaURL(s.URL) {
 			return s.URL
 		}
 	}

@@ -206,7 +206,27 @@ button[aria-pressed="true"], #new-chat, #send {
   gap: 6px;
 }
 
-.bubble-body { white-space: pre-wrap; }
+.bubble-body { white-space: normal; }
+
+.bubble-text { white-space: pre-wrap; }
+
+.sources { max-width: 100%; white-space: normal; }
+
+.bubble-text + .sources { margin-top: 8px; }
+
+button.sources-toggle {
+  padding: 2px 10px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  background: transparent;
+  white-space: nowrap;
+}
+
+button.sources-toggle[aria-expanded="true"] { border-color: var(--accent); }
+
+.sources .evidence[hidden] { display: none; }
+
+.sources .evidence li + li { margin-top: 4px; }
 
 button.copy {
   padding: 2px 10px;

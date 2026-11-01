@@ -102,7 +102,7 @@ func writeCorpus(root, train, valid string) (corpusStats, error) {
 		Name:    "rajpurkar/squad_v2",
 		Source:  "https://huggingface.co/datasets/rajpurkar/squad_v2",
 		License: "CC BY-SA 4.0",
-		Note:    "Unique Wikipedia passages from SQuAD 2.0. Questions repeat a context, so contexts are deduped before indexing. This is a question-answering corpus, not a language-model dump.",
+		Note:    "Unique passages from SQuAD 2.0. Questions repeat a context, so contexts are deduped before indexing. This is a question-answering corpus, not a language-model dump.",
 	}
 	for _, path := range []string{train, valid} {
 		rows, err := parquet.ReadFile[squadRow](path)
@@ -124,7 +124,7 @@ func writeCorpus(root, train, valid string) (corpusStats, error) {
 				break
 			}
 			title := strings.TrimSpace(row.Title)
-			url := "https://en.wikipedia.org/wiki/" + strings.ReplaceAll(title, " ", "_")
+			url := ""
 			line, _ := json.Marshal(map[string]string{"title": title, "text": text, "url": url})
 			if int64(len(line)+1)+stats.Bytes > maxBytes {
 				break

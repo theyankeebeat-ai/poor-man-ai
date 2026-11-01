@@ -19,9 +19,9 @@ func TestRouterParamCount(t *testing.T) {
 func TestRenderAnswerCites(t *testing.T) {
 	out := renderAnswer(
 		[]answerBlock{{Lead: "Paris is the capital of France."}},
-		[]source{{Title: "France", URL: "https://en.wikipedia.org/wiki/France"}},
+		[]source{{Title: "Brave Ask", URL: "https://search.brave.com/ask?q=France"}},
 	)
-	if !stringsContainsAll(out, "Paris is the capital", "Citations:", "https://en.wikipedia.org/wiki/France") {
+	if !stringsContainsAll(out, "Paris is the capital", "Citations:", "https://search.brave.com/ask?q=France") {
 		t.Fatalf("rendered:\n%s", out)
 	}
 }

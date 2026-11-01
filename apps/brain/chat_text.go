@@ -54,11 +54,11 @@ func chatReply(message string, history []turn) string {
 	case regexp.MustCompile(`(?i)smarter than|are you (?:a )?human`).MatchString(q):
 		return "No. One local brain routes the turn. Static embeddings rerank passages. I am not smarter than you."
 	case regexp.MustCompile(`(?i)without (?:an? )?api|no (?:api )?key|offline|local`).MatchString(q):
-		return "Yes. Chat, math, and memory run with no key. Research uses the local Simple Wikipedia slice, then Wikipedia and Google News when the question needs the live web. Grok 4.7 is used only when XAI_API_KEY is set."
+		return "Yes. Chat, math, and memory run with no key. Research uses the local passage index, then search-engine AI mode when the question needs the live web. Grok 4.7 is used only when XAI_API_KEY is set."
 	case regexp.MustCompile(`(?i)who are you|what(?:'s| is) your name`).MatchString(q):
-		return "I am Poor Man AI: a Next.js cockpit and a Go brain. Retrieval is potion-base-8M (7,559,168 static parameters, int8) over a Simple English Wikipedia passage slice. Memory is append-only JSONL, not training."
+		return "I am Poor Man AI: a Next.js cockpit and a Go brain. Retrieval is potion-base-8M (7,559,168 static parameters, int8) over a local passage slice. Live lookups use search-engine AI mode. Memory is append-only JSONL, not training."
 	case regexp.MustCompile(`(?i)what can you do|help`).MatchString(q):
-		return "One brain, several modes:\n- **chat** — greetings in English, French, Russian, and Spanish\n- **calc** — arithmetic, no web\n- **memory** — `remember …` / `what do you remember`\n- **research** — hybrid BM25 + static embeddings, then live Wikipedia and Google News\n\nA turn with several questions is answered one at a time."
+		return "One brain, several modes:\n- **chat** — greetings in English, French, Russian, and Spanish\n- **calc** — arithmetic, no web\n- **memory** — `remember …` / `what do you remember`\n- **research** — hybrid BM25 + static embeddings, then search-engine AI mode\n\nA turn with several questions is answered one at a time."
 	case regexp.MustCompile(`(?i)how are you`).MatchString(q):
 		return "I'm doing great, thank you for asking. What's on your mind?"
 	case regexp.MustCompile(`(?i)thanks|thank you|thx`).MatchString(q):

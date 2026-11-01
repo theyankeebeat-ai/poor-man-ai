@@ -1,17 +1,23 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"html"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 )
@@ -20,36 +26,82 @@ type webHit struct {
 	Title   string `json:"title"`
 	URL     string `json:"url"`
 	Snippet string `json:"snippet"`
+	Source  string `json:"source,omitempty"`
 }
 
 var httpClient = &http.Client{Timeout: 8 * time.Second}
 
+type aiModeMemo struct {
+	mu sync.Mutex
+	m  map[string][]webHit
+}
+
+var aiMemo = aiModeMemo{m: map[string][]webHit{}}
+
+func (c *aiModeMemo) get(q string) ([]webHit, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	hits, ok := c.m[q]
+	if !ok {
+		return nil, false
+	}
+	return append([]webHit(nil), hits...), true
+}
+
+func (c *aiModeMemo) put(q string, hits []webHit) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(c.m) > 32 {
+		c.m = map[string][]webHit{}
+	}
+	c.m[q] = append([]webHit(nil), hits...)
+}
+
 func webSearch(query string) []webHit {
 	var hits []webHit
-	wikiHits, suggestion := wikiSearch(query)
-	hits = append(hits, wikiHits...)
-	wantNews := newsRE.MatchString(query) || sportsRE.MatchString(query) || len(wikiHits) < 3
-	if wantNews {
-		newsQ := []string{query}
-		if suggestion != "" && !sameFold(suggestion, query) {
-			newsQ = append([]string{suggestion}, newsQ...)
-		}
-		for _, q := range newsQ {
-			hits = append(hits, googleNews(q)...)
-		}
+	hits = append(hits, aiModeSearch(query)...)
+	if len(hits) == 0 || newsRE.MatchString(query) || sportsRE.MatchString(query) {
+		hits = append(hits, googleNews(query)...)
 	}
 	return dedupeHits(hits, 8)
 }
 
-func sameFold(a, b string) bool {
-	return fold(collapseSpace(a)) == fold(collapseSpace(b))
+// isWikipediaURL is true for Wikipedia / Wikimedia hosts. Those pages are never
+// fetched, ranked, or cited — search uses AI-mode engines and Google News only.
+func isWikipediaURL(raw string) bool {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return false
+	}
+	if !strings.Contains(raw, "://") {
+		raw = "https://" + raw
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(u.Hostname())
+	host = strings.TrimPrefix(host, "www.")
+	if host == "wikipedia.org" || strings.HasSuffix(host, ".wikipedia.org") {
+		return true
+	}
+	if host == "wikimedia.org" || strings.HasSuffix(host, ".wikimedia.org") {
+		return true
+	}
+	if host == "wikidata.org" || strings.HasSuffix(host, ".wikidata.org") {
+		return true
+	}
+	if host == "mediawiki.org" || strings.HasSuffix(host, ".mediawiki.org") {
+		return true
+	}
+	return false
 }
 
 func dedupeHits(in []webHit, limit int) []webHit {
 	seen := map[string]struct{}{}
 	var out []webHit
 	for _, h := range in {
-		if h.URL == "" {
+		if h.URL == "" || isWikipediaURL(h.URL) {
 			continue
 		}
 		if _, ok := seen[h.URL]; ok {
@@ -64,48 +116,125 @@ func dedupeHits(in []webHit, limit int) []webHit {
 	return out
 }
 
-func wikiSearch(query string) ([]webHit, string) {
-	hits, suggestion := wikiOnce(query)
-	if suggestion != "" && !sameFold(suggestion, query) {
-		more, _ := wikiOnce(suggestion)
-		hits = append(more, hits...)
+func aiModeSearch(query string) []webHit {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return nil
 	}
-	return dedupeHits(hits, 8), suggestion
+	if hits, ok := aiMemo.get(query); ok {
+		return hits
+	}
+	hits := runAIModeSearch(query)
+	aiMemo.put(query, hits)
+	return hits
 }
 
-func wikiOnce(query string) ([]webHit, string) {
-	u := "https://en.wikipedia.org/w/api.php?action=query&list=search&format=json&utf8=1&srlimit=4&srinfo=suggestion&srsearch=" + url.QueryEscape(query)
-	body, err := getBody(u)
+func runAIModeSearch(query string) []webHit {
+	script := findBrowserSearch()
+	if script == "" {
+		log.Printf("search-engine AI mode: browser_search.py was not found")
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 110*time.Second)
+	defer cancel()
+	cmd := pythonCommand(ctx, "-c", aiModeRunner, filepath.Dir(script), query)
+	if cmd == nil {
+		log.Printf("search-engine AI mode: python was not found")
+		return nil
+	}
+	out, err := cmd.Output()
 	if err != nil {
-		return nil, ""
+		log.Printf("search-engine AI mode: %v", err)
+		return nil
 	}
-	return parseWikiSearch(body)
+	return parseAIMode(out)
 }
 
-func parseWikiSearch(body []byte) ([]webHit, string) {
+const aiModeRunner = `import json, sys
+sys.path.insert(0, sys.argv[1])
+import browser_search
+json.dump(browser_search.search(sys.argv[2]), sys.stdout)
+`
+
+func pythonCommand(ctx context.Context, args ...string) *exec.Cmd {
+	if path, err := exec.LookPath("python"); err == nil {
+		return exec.CommandContext(ctx, path, args...)
+	}
+	if path, err := exec.LookPath("py"); err == nil {
+		return exec.CommandContext(ctx, path, append([]string{"-3"}, args...)...)
+	}
+	return nil
+}
+
+func findBrowserSearch() string {
+	if p := strings.TrimSpace(os.Getenv("BROWSER_SEARCH_PY")); p != "" {
+		if st, err := os.Stat(p); err == nil && !st.IsDir() {
+			return p
+		}
+	}
+	names := []string{
+		filepath.Join("_archive_python_server", "browser_search.py"),
+		filepath.Join("server", "browser_search.py"),
+	}
+	var dirs []string
+	if wd, err := os.Getwd(); err == nil {
+		dirs = append(dirs, wd)
+	}
+	if exe, err := os.Executable(); err == nil {
+		dirs = append(dirs, filepath.Dir(exe))
+	}
+	for _, dir := range dirs {
+		for i := 0; i < 5; i++ {
+			for _, name := range names {
+				candidate := filepath.Join(dir, name)
+				if st, err := os.Stat(candidate); err == nil && !st.IsDir() {
+					return candidate
+				}
+			}
+			parent := filepath.Dir(dir)
+			if parent == dir {
+				break
+			}
+			dir = parent
+		}
+	}
+	return ""
+}
+
+func parseAIMode(body []byte) []webHit {
 	var payload struct {
-		Query struct {
-			SearchInfo struct {
-				Suggestion string `json:"suggestion"`
-			} `json:"searchinfo"`
-			Search []struct {
-				Title   string `json:"title"`
-				Snippet string `json:"snippet"`
-			} `json:"search"`
-		} `json:"query"`
+		Items []struct {
+			Title   string `json:"title"`
+			URL     string `json:"url"`
+			Snippet string `json:"snippet"`
+			Source  string `json:"source"`
+		} `json:"items"`
 	}
 	if json.Unmarshal(body, &payload) != nil {
-		return nil, ""
+		return nil
 	}
 	var out []webHit
-	for _, row := range payload.Query.Search {
+	for _, item := range payload.Items {
+		if strings.TrimSpace(item.Snippet) == "" {
+			continue
+		}
 		out = append(out, webHit{
-			Title:   row.Title,
-			URL:     "https://en.wikipedia.org/wiki/" + url.PathEscape(strings.ReplaceAll(row.Title, " ", "_")),
-			Snippet: stripTags(row.Snippet),
+			Title:   item.Title,
+			URL:     item.URL,
+			Snippet: item.Snippet,
+			Source:  item.Source,
 		})
 	}
-	return out, strings.TrimSpace(payload.Query.SearchInfo.Suggestion)
+	return out
+}
+
+func aiModeHit(hit webHit) bool {
+	switch hit.Source {
+	case "duck-ai", "google-ai", "brave-ask", "bing", "yandex":
+		return true
+	default:
+		return false
+	}
 }
 
 func googleNews(query string) []webHit {
@@ -155,13 +284,8 @@ func readPage(raw string, maxChars int) page {
 	if !strings.Contains(raw, "://") {
 		raw = "https://" + raw
 	}
-	if title, ok := wikiTitle(raw); ok {
-		if text := html.UnescapeString(wikiExtract(title)); text != "" {
-			if len(text) > maxChars {
-				text = text[:maxChars]
-			}
-			return page{Title: title, URL: raw, Text: text}
-		}
+	if isWikipediaURL(raw) {
+		return page{URL: raw, Text: "", Title: "Wikipedia is blocked as a source"}
 	}
 	body, err := getBody(raw)
 	if err != nil {
@@ -173,44 +297,6 @@ func readPage(raw string, maxChars int) page {
 		text = text[:maxChars]
 	}
 	return page{Title: raw, URL: raw, Text: text}
-}
-
-func wikiTitle(raw string) (string, bool) {
-	u, err := url.Parse(raw)
-	if err != nil {
-		return "", false
-	}
-	if !strings.Contains(u.Host, "wikipedia.org") {
-		return "", false
-	}
-	path := strings.TrimPrefix(u.Path, "/wiki/")
-	if path == "" || path == u.Path {
-		return "", false
-	}
-	title, err := url.PathUnescape(path)
-	if err != nil {
-		return "", false
-	}
-	return strings.ReplaceAll(title, "_", " "), true
-}
-
-func wikiExtract(title string) string {
-	u := "https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exintro=1&format=json&titles=" + url.QueryEscape(title)
-	var payload struct {
-		Query struct {
-			Pages map[string]struct {
-				Title   string `json:"title"`
-				Extract string `json:"extract"`
-			} `json:"pages"`
-		} `json:"query"`
-	}
-	if getJSON(u, &payload) != nil {
-		return ""
-	}
-	for _, p := range payload.Query.Pages {
-		return p.Extract
-	}
-	return ""
 }
 
 func weatherReport(message string) (string, []webHit) {
@@ -498,15 +584,6 @@ func ofRelation(q string) (head, tail string, ok bool) {
 	return strings.TrimSpace(parts[1]), strings.TrimSpace(parts[2]), true
 }
 
-func lookupQueries(q string) []string {
-	focused := focusQuery(q)
-	out := []string{focused}
-	if _, tail, ok := ofRelation(focused); ok && tail != "" && !strings.EqualFold(tail, focused) {
-		out = append(out, tail)
-	}
-	return out
-}
-
 func focusQuery(q string) string {
 	s := strings.TrimSpace(strings.TrimRight(q, " ?.!"))
 	s = stripDiscourse(s)
@@ -548,6 +625,9 @@ func hitScore(query string, hit webHit) int {
 	}
 	if newsRE.MatchString(query) && strings.Contains(hit.URL, "news.google.com") {
 		score += 6
+	}
+	if aiModeHit(hit) {
+		score += 18
 	}
 	if _, tail, ok := ofRelation(query); ok {
 		title := strings.ToLower(hit.Title)

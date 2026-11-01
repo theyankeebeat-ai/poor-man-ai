@@ -52,7 +52,7 @@ func readFacts() []memoryFact {
 		if json.Unmarshal([]byte(line), &row) != nil || strings.TrimSpace(row.Fact) == "" {
 			continue
 		}
-		if junkFact(row.Fact) {
+		if junkFact(row.Fact) || isWikipediaURL(row.SourceURL) {
 			continue
 		}
 		out = append(out, row)
@@ -62,7 +62,7 @@ func readFacts() []memoryFact {
 
 func junkFact(fact string) bool {
 	l := strings.ToLower(fact)
-	bad := []string{"from the pages i read", "jina", "401", "couldn't pull", "could not pull", "blocked the fetch"}
+	bad := []string{"from the pages i read", "jina", "401", "couldn't pull", "could not pull", "blocked the fetch", "wikipedia.org", "wikimedia.org"}
 	for _, b := range bad {
 		if strings.Contains(l, b) {
 			return true
@@ -72,6 +72,9 @@ func junkFact(fact string) bool {
 }
 
 func writeFact(fact, source string) memoryFact {
+	if isWikipediaURL(source) {
+		source = ""
+	}
 	row := memoryFact{
 		TS:        time.Now().UTC().Format(time.RFC3339),
 		Fact:      strings.TrimSpace(fact),

@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"regexp"
 	"strings"
+	"unicode"
 
 	"github.com/flosch/pongo2/v6"
 )
@@ -35,7 +36,7 @@ func renderAnswer(blocks []answerBlock, sources []source) string {
 	var cites []string
 	seen := map[string]struct{}{}
 	for _, s := range sources {
-		if s.URL == "" {
+		if s.URL == "" || isWikipediaURL(s.URL) {
 			continue
 		}
 		if _, ok := seen[s.URL]; ok {
@@ -86,9 +87,13 @@ func renderAnswer(blocks []answerBlock, sources []source) string {
 }
 
 var (
-	copulaAfterHead = regexp.MustCompile(`(?i)\b(is|are|was|were)\b`)
-	newsEventRE     = regexp.MustCompile(`(?i)\b(election|elections|vote|voted|won|resign|resigned|killed|attack|parliament|majority)\b`)
-	yearRE          = regexp.MustCompile(`\b20\d{2}\b`)
+	copulaAfterHead  = regexp.MustCompile(`(?i)\b(is|are|was|were)\b`)
+	newsEventRE      = regexp.MustCompile(`(?i)\b(election|elections|vote|voted|won|resign|resigned|killed|attack|parliament|majority)\b`)
+	yearRE           = regexp.MustCompile(`\b20\d{2}\b`)
+	echoQuestion     = regexp.MustCompile(`(?i)^(what|who|where|when|why|how|define)\b`)
+	answerChipRE     = regexp.MustCompile(`(?:^|\s)[^\s·•∙⋅|.!?]{1,40}(?:\s+[^\s·•∙⋅|.!?]{1,40}){0,3}\s*[·•∙⋅|]\s*[^\s·•∙⋅|.!?]{1,40}(?:\s+[^\s·•∙⋅|.!?]{1,40}){0,3}\s+\+\d+\b`)
+	answerFinishedRE = regexp.MustCompile(`(?:^|\s)Finished(?:\s+\+\d+\b)?(\s+\p{Lu}|$)`)
+	answerBadgeRE    = regexp.MustCompile(`(?:^|\s)\+\d+\b(\s+\p{Lu}|\s*[.!?]|$)`)
 )
 
 func leadSentence(query, text string) (lead, support string) {
@@ -97,6 +102,9 @@ func leadSentence(query, text string) (lead, support string) {
 		return "I could not extract a supported sentence for that question.", ""
 	}
 	parts := splitSentences(text)
+	if len(parts) == 0 {
+		return "I could not extract a supported sentence for that question.", ""
+	}
 	q := tokenize(query)
 	head := ""
 	if len(q) > 0 {
@@ -185,10 +193,7 @@ func splitSentences(text string) []string {
 	runes := []rune(text)
 	for i, r := range runes {
 		if r == '\n' {
-			s := strings.TrimSpace(b.String())
-			if len(s) > 40 {
-				out = append(out, s)
-			}
+			keepSentence(&out, b.String())
 			b.Reset()
 			continue
 		}
@@ -197,18 +202,123 @@ func splitSentences(text string) []string {
 			continue
 		}
 		if r == '.' || r == '!' || r == '?' {
-			s := strings.TrimSpace(b.String())
-			if len(s) > 40 {
-				out = append(out, s)
-			}
+			keepSentence(&out, b.String())
 			b.Reset()
 		}
 	}
-	if tail := strings.TrimSpace(b.String()); len(tail) > 40 {
-		out = append(out, tail)
-	}
-	if len(out) == 0 && strings.TrimSpace(text) != "" {
-		return []string{clip(text, 500)}
+	keepSentence(&out, b.String())
+	if len(out) == 0 {
+		whole := strings.TrimSpace(text)
+		if sentenceOK(whole) {
+			return []string{clip(whole, 500)}
+		}
+		return nil
 	}
 	return out
+}
+
+func keepSentence(out *[]string, raw string) {
+	s := strings.TrimSpace(raw)
+	if sentenceOK(s) {
+		*out = append(*out, s)
+	}
+}
+
+// Short factual answers stay. Status chrome does not, even when a chip
+// prefix would have pushed it past 40 characters.
+func sentenceOK(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" || isAnswerChrome(s) {
+		return false
+	}
+	if len([]rune(s)) > 40 {
+		return true
+	}
+	if echoQuestion.MatchString(s) || strings.HasSuffix(s, "?") {
+		return false
+	}
+	if len(strings.Fields(s)) < 4 {
+		return false
+	}
+	return strings.ContainsAny(s, ".!") || copulaAfterHead.MatchString(s)
+}
+
+func isAnswerChrome(s string) bool {
+	t := strings.TrimSpace(s)
+	if t == "" || strings.EqualFold(t, "finished") {
+		return true
+	}
+	rest := answerChipRE.ReplaceAllString(t, " ")
+	rest = answerFinishedRE.ReplaceAllString(rest, "$1")
+	rest = answerBadgeRE.ReplaceAllString(rest, "$1")
+	return strings.TrimSpace(collapseSpace(rest)) == ""
+}
+
+func stripAnswerChrome(text, query string) string {
+	text = collapseSpace(text)
+	if text == "" {
+		return ""
+	}
+	text = answerChipRE.ReplaceAllString(text, " ")
+	text = answerFinishedRE.ReplaceAllString(text, "$1")
+	text = answerBadgeRE.ReplaceAllString(text, "$1")
+	text = stripEchoedQuestion(text, query)
+	return dedupeAnswer(collapseSpace(text))
+}
+
+func stripEchoedQuestion(text, query string) string {
+	q := strings.Trim(collapseSpace(query), " ?.!")
+	if len([]rune(q)) < 6 {
+		return text
+	}
+	// Go's regexp has no lookahead. Keep the boundary and the following capital.
+	re := regexp.MustCompile(`(?i)(^|[.!?]\s+)` + regexp.QuoteMeta(q) + `[.?!]?(\s+\p{Lu}|$)`)
+	return re.ReplaceAllString(text, "$1$2")
+}
+
+func dedupeAnswer(text string) string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return ""
+	}
+	runes := []rune(text)
+	var parts []string
+	start := 0
+	for i := 0; i < len(runes); i++ {
+		r := runes[i]
+		if r != '.' && r != '!' && r != '?' {
+			continue
+		}
+		if i+1 < len(runes) && runes[i+1] != ' ' {
+			continue
+		}
+		j := i + 1
+		for j < len(runes) && runes[j] == ' ' {
+			j++
+		}
+		if j >= len(runes) || unicode.IsUpper(runes[j]) {
+			if piece := strings.TrimSpace(string(runes[start : i+1])); piece != "" {
+				parts = append(parts, piece)
+			}
+			start = j
+			i = j - 1
+		}
+	}
+	if tail := strings.TrimSpace(string(runes[start:])); tail != "" {
+		parts = append(parts, tail)
+	}
+	var kept []string
+	seen := map[string]struct{}{}
+	for _, piece := range parts {
+		key := strings.TrimRight(strings.ToLower(piece), ".!? ")
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		kept = append(kept, piece)
+	}
+	return strings.Join(kept, " ")
 }

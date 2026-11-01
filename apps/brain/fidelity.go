@@ -754,7 +754,7 @@ func anotherLocation(sents []string, subject, lead string) string {
 }
 
 func answerPart(part, blob string, all []string) (string, string) {
-	blob = collapseSpace(blob)
+	blob = stripAnswerChrome(blob, part)
 	if blob == "" {
 		return "I could not extract a supported sentence for that question.", ""
 	}

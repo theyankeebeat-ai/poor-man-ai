@@ -10,7 +10,7 @@ Static chat UI over a Go brain. There is no Python in the live path.
 - Indexes **SQuAD 2.0** passages for local RAG.
 - Ranks with BM25, then fuses with cosine rank.
 - Calls **grok-4.7** only when `XAI_API_KEY` is set and thinking is medium or high.
-- Uses Wikipedia, Google News RSS, and Open-Meteo for weather.
+- Uses search-engine AI mode (Google AI Mode, Brave Ask, Bing AI Mode, Duck.ai, Yandex), Google News RSS, and Open-Meteo for weather.
 
 ## Run locally
 

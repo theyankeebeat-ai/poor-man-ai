@@ -219,33 +219,306 @@
     return line;
   }
 
-  function evidenceList(items) {
-    var list = document.createElement("ul");
-    list.className = "evidence";
-    var count = 0;
-    var rows = Array.isArray(items) ? items : [];
-    for (var i = 0; i < rows.length && count < 4; i++) {
+  var SOURCE_CAP = 12;
+
+  function presentAnswer(content, evidence) {
+    var split = splitCitations(content);
+    var sources = split.sources;
+    var rows = Array.isArray(evidence) ? evidence : [];
+    for (var i = 0; i < rows.length; i++) {
       var item = rows[i];
       if (!item || typeof item.url !== "string") continue;
-      var parsed;
-      try {
-        parsed = new URL(item.url);
-      } catch (_err) {
+      addSource(sources, typeof item.title === "string" ? item.title : "", item.url);
+    }
+    return { prose: split.prose, sources: sources };
+  }
+
+  function splitCitations(content) {
+    var text = typeof content === "string" ? content : "";
+    var sources = [];
+    var tail = citationTail(text);
+    var prose = text;
+    if (tail) {
+      prose = tail.prose;
+      parseCitationBlock(tail.block, sources);
+    }
+    prose = replaceMarkdownLinks(prose, sources);
+    prose = stripBareUrls(prose, sources);
+    prose = tidyProse(prose);
+    if (sources.length) prose = stripTrailingCiteHeading(prose);
+    return { prose: prose, sources: sources };
+  }
+
+  function citationTail(text) {
+    var re = /(?:^|\n)[ \t]*(?:\*\*|__)?(?:citations?|sources?|references?)(?:\*\*|__)?[ \t]*:?[ \t]*(?=\n|$|https?:\/\/)/gi;
+    var matches = [];
+    var match;
+    while ((match = re.exec(text))) {
+      matches.push({ index: match.index, end: match.index + match[0].length });
+      if (match.index === re.lastIndex) re.lastIndex += 1;
+    }
+    for (var i = matches.length - 1; i >= 0; i--) {
+      var after = text.slice(matches[i].end);
+      if (!tailIsCitations(after)) continue;
+      var prose = text.slice(0, matches[i].index).replace(/\s+$/, "");
+      if (!prose && !after.trim()) continue;
+      return { prose: prose, block: after };
+    }
+    return null;
+  }
+
+  function tailIsCitations(after) {
+    if (!String(after).trim()) return true;
+    var lines = after.split("\n");
+    var urls = 0;
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (!line) continue;
+      if (/https?:\/\//i.test(line)) {
+        urls += 1;
         continue;
       }
-      if ((parsed.protocol !== "http:" && parsed.protocol !== "https:") || !parsed.hostname) continue;
-      var title = typeof item.title === "string" && item.title.trim() ? item.title.trim() : "Source";
+      return false;
+    }
+    return urls > 0;
+  }
+
+  function parseCitationBlock(block, sources) {
+    var lines = block.split("\n");
+    for (var n = 0; n < lines.length; n++) {
+      var line = lines[n].trim().replace(/^(?:[-*+]|\d+[.)]|\[\d+\])\s+/, "");
+      if (!line) continue;
+      line = replaceMarkdownLinks(line, sources);
+      var at = indexOfUrl(line, 0);
+      if (at < 0) continue;
+      var found = readUrl(line, at);
+      if (!found) continue;
+      addSource(sources, line.slice(0, at), found.href);
+      var rest = line.slice(at + found.consumed);
+      while (rest) {
+        var next = indexOfUrl(rest, 0);
+        if (next < 0) break;
+        var more = readUrl(rest, next);
+        if (!more) break;
+        addSource(sources, "", more.href);
+        rest = rest.slice(next + more.consumed);
+      }
+    }
+  }
+
+  function replaceMarkdownLinks(text, sources) {
+    var out = "";
+    var i = 0;
+    while (i < text.length) {
+      var start = text.indexOf("[", i);
+      if (start < 0) {
+        out += text.slice(i);
+        break;
+      }
+      var endText = text.indexOf("]", start + 1);
+      if (endText < 0 || endText > start + 180 || text.charAt(endText + 1) !== "(") {
+        out += text.slice(i, start + 1);
+        i = start + 1;
+        continue;
+      }
+      var urlStart = endText + 2;
+      var found = readUrl(text, urlStart);
+      var after = found ? urlStart + found.consumed : -1;
+      if (!found || text.charAt(after) !== ")") {
+        out += text.slice(i, start + 1);
+        i = start + 1;
+        continue;
+      }
+      var title = text.slice(start + 1, endText).replace(/[*_`]+/g, "").trim();
+      if (/^https?:\/\//i.test(title)) title = "";
+      out += text.slice(i, start);
+      out += title;
+      addSource(sources, title, found.href);
+      i = after + 1;
+    }
+    return out;
+  }
+
+  function stripBareUrls(text, sources) {
+    var out = "";
+    var i = 0;
+    while (i < text.length) {
+      var at = indexOfUrl(text, i);
+      if (at < 0) {
+        out += text.slice(i);
+        break;
+      }
+      var found = readUrl(text, at);
+      if (!found) {
+        out += text.slice(i, at + 1);
+        i = at + 1;
+        continue;
+      }
+      var lead = text.slice(i, at);
+      var angle = lead.charAt(lead.length - 1) === "<";
+      if (angle) lead = lead.slice(0, -1);
+      lead = lead.replace(/[ \t]+$/, "");
+      lead = lead.replace(/[ \t]*(?:[:—–]|-)[ \t]*$/, "");
+      out += lead;
+      out += found.trail;
+      addSource(sources, "", found.href);
+      i = at + found.consumed;
+      if (angle && text.charAt(i) === ">") i += 1;
+    }
+    return out;
+  }
+
+  function indexOfUrl(text, from) {
+    var re = /https?:\/\//gi;
+    re.lastIndex = from || 0;
+    var match = re.exec(text);
+    return match ? match.index : -1;
+  }
+
+  function readUrl(text, index) {
+    if (index < 0 || index >= text.length) return null;
+    var head = text.slice(index, index + 8).toLowerCase();
+    if (head.slice(0, 7) !== "http://" && head.slice(0, 8) !== "https://") return null;
+    var depth = 0;
+    var end = 0;
+    for (var i = 0; i < text.length - index; i++) {
+      var ch = text.charAt(index + i);
+      if (ch === "(") {
+        depth += 1;
+      } else if (ch === ")") {
+        if (depth === 0) break;
+        depth -= 1;
+      } else if (ch === " " || ch === "\n" || ch === "\t" || ch === "\r" || ch === "<" || ch === ">" || ch === "\"" || ch === "'" || ch === "`" || ch === "]" || ch === "|") {
+        break;
+      }
+      end = i + 1;
+    }
+    var raw = text.slice(index, index + end);
+    var trail = "";
+    while (raw.length && ".,;:!?".indexOf(raw.charAt(raw.length - 1)) !== -1) {
+      trail = raw.charAt(raw.length - 1) + trail;
+      raw = raw.slice(0, -1);
+    }
+    var parsed = safeUrl(raw);
+    if (!parsed) return null;
+    return { href: parsed.href, trail: trail, consumed: end };
+  }
+
+  function safeUrl(raw) {
+    if (typeof raw !== "string" || !raw.trim()) return null;
+    try {
+      var parsed = new URL(raw.trim());
+      if ((parsed.protocol !== "http:" && parsed.protocol !== "https:") || !parsed.hostname) return null;
+      return parsed;
+    } catch (_err) {
+      return null;
+    }
+  }
+
+  function addSource(list, title, url) {
+    var parsed = safeUrl(url);
+    if (!parsed) return;
+    var host = parsed.hostname.replace(/^www\./i, "");
+    var label = cleanTitle(title);
+    if (!label || label.toLowerCase() === host.toLowerCase()) label = host;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].url === parsed.href) {
+        if (list[i].title === list[i].host && label !== host) list[i].title = label;
+        return;
+      }
+    }
+    if (list.length >= SOURCE_CAP) return;
+    list.push({ title: label, url: parsed.href, host: host });
+  }
+
+  function cleanTitle(title) {
+    if (typeof title !== "string") return "";
+    var t = title.replace(/[*_`]+/g, " ").replace(/\s+/g, " ").trim();
+    t = t.replace(/^(?:[-*+]|\d+[.)]|\[\d+\])\s+/, "");
+    t = t.replace(/[ \t]*(?:[:—–]|-)[ \t]*$/, "");
+    t = t.replace(/[ \t]*[\[\(]+[ \t]*$/, "").trim();
+    if (typeof window !== "undefined" && /%[0-9A-Fa-f]{2}/.test(t)) {
+      try {
+        t = window.decodeURIComponent(t).replace(/\s+/g, " ").trim();
+      } catch (_err) {
+        /* keep the title as it was written */
+      }
+    }
+    if (/^https?:\/\//i.test(t)) return "";
+    if (t.length > 180) t = t.slice(0, 177) + "...";
+    return t;
+  }
+
+  function tidyProse(text) {
+    var lines = String(text).split("\n");
+    var cleaned = [];
+    var blank = 0;
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i]
+        .replace(/\(\s*\)/g, "")
+        .replace(/\[\s*\]/g, "")
+        .replace(/<\s*>/g, "")
+        .replace(/[ \t]{2,}/g, " ")
+        .replace(/[ \t]+([.,;:!?])/g, "$1")
+        .replace(/[ \t]+$/g, "")
+        .replace(/^[ \t]+/g, "");
+      if (/^(?:[-*+]|\d+[.)]|\[\d+\])$/.test(line)) continue;
+      if (!line) {
+        blank += 1;
+        if (blank === 1 && cleaned.length) cleaned.push("");
+        continue;
+      }
+      blank = 0;
+      cleaned.push(line);
+    }
+    while (cleaned.length && cleaned[0] === "") cleaned.shift();
+    while (cleaned.length && cleaned[cleaned.length - 1] === "") cleaned.pop();
+    return cleaned.join("\n");
+  }
+
+  function stripTrailingCiteHeading(text) {
+    return text.replace(/(?:^|\n)[ \t]*(?:\*\*|__)?(?:citations?|sources?|references?)(?:\*\*|__)?[ \t]*:?[ \t]*$/i, "").trim();
+  }
+
+  function sourceLinkText(item) {
+    if (!item.host || item.title.toLowerCase() === item.host.toLowerCase()) return item.host || item.title || item.url;
+    return item.title + " · " + item.host;
+  }
+
+  function sourcesPanel(sources) {
+    var panel = document.createElement("div");
+    panel.className = "sources";
+    var button = document.createElement("button");
+    button.type = "button";
+    button.className = "sources-toggle";
+    button.textContent = "Sources · " + sources.length;
+    button.setAttribute("aria-expanded", "false");
+    var listId = "sources-" + blankId();
+    button.setAttribute("aria-controls", listId);
+    var list = document.createElement("ul");
+    list.className = "evidence";
+    list.id = listId;
+    list.hidden = true;
+    sources.forEach(function (item) {
       var li = document.createElement("li");
       var link = document.createElement("a");
-      link.href = parsed.href;
+      link.href = item.url;
       link.target = "_blank";
       link.rel = "noreferrer";
-      link.textContent = title + " · " + parsed.hostname;
+      link.title = item.url;
+      link.textContent = sourceLinkText(item);
       li.appendChild(link);
       list.appendChild(li);
-      count += 1;
-    }
-    return count ? list : null;
+    });
+    button.addEventListener("click", function () {
+      var open = button.getAttribute("aria-expanded") !== "true";
+      button.setAttribute("aria-expanded", open ? "true" : "false");
+      list.hidden = !open;
+      if (open && list.scrollIntoView) list.scrollIntoView({ block: "nearest" });
+    });
+    panel.appendChild(button);
+    panel.appendChild(list);
+    return panel;
   }
 
   function writeClipboard(text) {
@@ -345,20 +618,27 @@
     block.className = "bubble " + role;
     if (message.error) block.classList.add("error");
     if (message.pending) block.classList.add("pending");
+    var raw = typeof message.content === "string" ? message.content : "";
+    var rendered = role === "assistant" && !message.error
+      ? presentAnswer(raw, message.evidence)
+      : { prose: raw, sources: [] };
     var body = document.createElement("div");
     body.className = "bubble-body";
-    body.textContent = message.content;
+    if (rendered.prose) {
+      var prose = document.createElement("div");
+      prose.className = "bubble-text";
+      prose.textContent = rendered.prose;
+      body.appendChild(prose);
+    }
+    if (rendered.sources.length) body.appendChild(sourcesPanel(rendered.sources));
     block.appendChild(body);
     if (role === "assistant" && !message.error && !message.pending) {
       var meta = document.createElement("span");
       meta.className = "meta";
       meta.textContent = metaLine(message);
       block.appendChild(meta);
-      var links = evidenceList(message.evidence);
-      if (links) block.appendChild(links);
     }
-    var text = typeof message.content === "string" ? message.content : "";
-    if (text && !message.pending) block.appendChild(copyButton(text));
+    if (raw && !message.pending) block.appendChild(copyButton(raw));
     if (role === "assistant" && !message.pending) {
       var panel = tracePanel(message.trace);
       if (panel) block.appendChild(panel);

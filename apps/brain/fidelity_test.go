@@ -214,10 +214,60 @@ func TestAskedThingBeatsAPassingMention(t *testing.T) {
 	}
 }
 
-func TestWikiSuggestionParsed(t *testing.T) {
-	body := []byte(`{"query":{"searchinfo":{"suggestion":"controversy"},"search":[{"title":"Controversy","snippet":"A <span>controversy</span>"}]}}`)
-	hits, suggestion := parseWikiSearch(body)
-	if suggestion != "controversy" || len(hits) != 1 || hits[0].Title != "Controversy" {
-		t.Fatalf("hits=%#v suggestion=%q", hits, suggestion)
+func TestParseAIModeKeepsAIHits(t *testing.T) {
+	body := []byte(`{"items":[
+		{"title":"Google AI Mode","snippet":"Paris is the capital.","url":"https://www.google.com/search?udm=50&q=France","source":"google-ai"},
+		{"title":"Empty","snippet":"","url":"https://example.com/empty","source":"bing"}
+	]}`)
+	hits := parseAIMode(body)
+	if len(hits) != 1 || hits[0].Source != "google-ai" || hits[0].Title != "Google AI Mode" {
+		t.Fatalf("hits=%#v", hits)
+	}
+	if !aiModeHit(hits[0]) {
+		t.Fatalf("hit=%#v", hits[0])
+	}
+}
+
+func TestBrowserSearchScriptPresent(t *testing.T) {
+	if findBrowserSearch() == "" {
+		t.Fatal("browser_search.py was not found")
+	}
+}
+
+func TestShortFactualAnswerDropsSearchChrome(t *testing.T) {
+	if got := stripAnswerChrome("Finished +6", "what is the capital of France"); got != "" {
+		t.Fatalf("status chrome = %q", got)
+	}
+	if got := stripAnswerChrome("YouTube · Abela +4", "what is the capital of France"); got != "" {
+		t.Fatalf("citation chip = %q", got)
+	}
+	kept := stripAnswerChrome("The party gained +4 seats in the assembly election last night.", "assembly election")
+	if !strings.Contains(kept, "+4") {
+		t.Fatalf("a quantity was stripped: %q", kept)
+	}
+	abbrev := stripAnswerChrome("U.S. officials said the vote was held on Tuesday morning.", "the vote")
+	if !strings.Contains(abbrev, "U.S. officials") {
+		t.Fatalf("abbreviation split: %q", abbrev)
+	}
+
+	blob := "YouTube ·Abela +4 The capital of France is Paris. YouTube ·Abela +4 what is the capital of France Finished +6 The capital of France is Paris. France is a country in Western Europe with a long history of kings and republics."
+	lead, support := answerPart("what is the capital of France", blob, nil)
+	if lead != "The capital of France is Paris." {
+		t.Fatalf("lead = %q support = %q", lead, support)
+	}
+	glued := lead + " " + support
+	for _, junk := range []string{"YouTube", "Abela", "Finished", "+4", "+6"} {
+		if strings.Contains(glued, junk) {
+			t.Fatalf("junk %q in lead=%q support=%q", junk, lead, support)
+		}
+	}
+
+	saved := "what is the capital of France Finished +6 Paris is the capital of France."
+	lead, support = answerPart("what is the capital of France", saved, nil)
+	if lead != "Paris is the capital of France." {
+		t.Fatalf("saved lead = %q support = %q", lead, support)
+	}
+	if strings.Contains(lead+" "+support, "Finished") {
+		t.Fatalf("status survived: lead=%q support=%q", lead, support)
 	}
 }
