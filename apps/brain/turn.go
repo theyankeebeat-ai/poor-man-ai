@@ -52,6 +52,13 @@ func runTurn(message string, history []turn, mode string, thinking string, emit 
 	}
 
 	if text, ok := cheapAnswer(message, history, th); ok && mode != "code" {
+		if thinking != "off" {
+			var notes []string
+			text, notes = cheapReply(message, th, text)
+			for _, note := range notes {
+				emit(event{Type: "thinking", Text: note})
+			}
+		}
 		emit(event{Type: "plan", Text: "max_steps=0 mode=" + th.Mode})
 		emit(event{Type: "tool", Name: "brain:" + th.Mode, Args: map[string]any{"mode": th.Mode, "cheap": true}})
 		emit(event{Type: "observation", Name: "brain:" + th.Mode, Text: "One brain, handler=" + th.Mode + ". Skipped web and crew."})
@@ -84,8 +91,20 @@ func runTurn(message string, history []turn, mode string, thinking string, emit 
 	var blocks []answerBlock
 	var sources []source
 	evidence := ""
+	held := false
+	var reasonLog []string
 	for _, part := range parts {
 		if math, ok := tryMath(part); ok {
+			if thinking != "off" {
+				for _, note := range mathThought() {
+					line := note
+					if len(parts) > 1 {
+						line = clip(part, 72) + " — " + note
+					}
+					reasonLog = append(reasonLog, line)
+					emit(event{Type: "thinking", Text: line})
+				}
+			}
 			blocks = append(blocks, answerBlock{Heading: headingFor(parts, part), Lead: math})
 			continue
 		}
@@ -167,14 +186,36 @@ func runTurn(message string, history []turn, mode string, thinking string, emit 
 		chunks = append(chunks, webText...)
 		blob := strings.Join(chunks, "\n")
 		evidence += "\n## " + part + "\n" + clip(blob, 4000)
-		lead, support := answerPart(part, blob, parts)
+		var lead, support string
+		if thinking != "off" {
+			d := reasonAnswer(part, blob, parts)
+			lead, support = d.Lead, d.Support
+			if d.Held {
+				held = true
+			}
+			for _, note := range d.Notes {
+				line := note
+				if len(parts) > 1 {
+					line = clip(part, 72) + " — " + note
+				}
+				reasonLog = append(reasonLog, line)
+				emit(event{Type: "thinking", Text: line})
+			}
+		} else {
+			lead, support = answerPart(part, blob, parts)
+		}
 		blocks = append(blocks, answerBlock{Heading: headingFor(parts, part), Lead: lead, Support: support})
 	}
 
 	text := renderAnswer(blocks, sources)
-	if guarded(blocks) {
+	if held {
+		emit(event{Type: "plan", Text: "Kept the checked answer so a later draft cannot drop a year, a count, a person, a comparison, or an admitted gap."})
+	} else if guarded(blocks) {
 		emit(event{Type: "plan", Text: "Kept one block per question so a later draft cannot merge subjects, rename a person, or reuse a number."})
 	} else if xaiKey() != "" && thinking != "low" && th.Mode != "calc" {
+		if len(reasonLog) > 0 {
+			evidence += "\n\nChecks already made (obey them; do not quote them):\n- " + strings.Join(reasonLog, "\n- ")
+		}
 		if got, err := grokAnswer(writerQuestion(parts, message), evidence); err == nil && strings.TrimSpace(got) != "" && answersStaySeparate(got, parts) {
 			llmCalls++
 			text = strings.TrimSpace(got)

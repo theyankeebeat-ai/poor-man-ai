@@ -237,6 +237,8 @@ button.copy {
 
 .trace { width: 100%; }
 
+.trace.thinking { margin: 0 0 8px; }
+
 .trace summary {
   width: fit-content;
   cursor: pointer;

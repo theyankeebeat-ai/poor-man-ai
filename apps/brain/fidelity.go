@@ -851,6 +851,10 @@ func guarded(blocks []answerBlock) bool {
 		if strings.Contains(s, "Sources name ") ||
 			strings.Contains(s, "do not give one value") ||
 			strings.Contains(s, "do not state this for") ||
+			strings.Contains(s, "do not state the year") ||
+			strings.Contains(s, "do not state the number") ||
+			strings.Contains(s, "do not name a person") ||
+			strings.Contains(s, "do not compare both") ||
 			strings.Contains(s, "A separate account:") ||
 			strings.Contains(s, "answer a different question") {
 			return true

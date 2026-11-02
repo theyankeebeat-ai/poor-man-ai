@@ -116,6 +116,11 @@
       if (typeof message.source === "string") next.source = message.source;
       if (Array.isArray(message.evidence)) next.evidence = message.evidence;
       if (Array.isArray(message.trace)) next.trace = message.trace;
+      if (Array.isArray(message.thinking)) {
+        next.thinking = message.thinking.filter(function (step) {
+          return typeof step === "string" && step.trim();
+        }).slice(0, 24);
+      }
     }
     return next;
   }
@@ -567,6 +572,29 @@
     return button;
   }
 
+  function thinkingPanel(steps) {
+    var clean = [];
+    var rows = Array.isArray(steps) ? steps : [];
+    rows.forEach(function (step) {
+      if (typeof step === "string" && step.trim()) clean.push(step.trim());
+    });
+    if (!clean.length) return null;
+    var details = document.createElement("details");
+    details.className = "trace thinking";
+    var summary = document.createElement("summary");
+    summary.textContent = "Thinking";
+    details.appendChild(summary);
+    var list = document.createElement("ol");
+    list.className = "trace-steps";
+    clean.forEach(function (step) {
+      var line = document.createElement("li");
+      line.textContent = step;
+      list.appendChild(line);
+    });
+    details.appendChild(list);
+    return details;
+  }
+
   function tracePanel(trace) {
     var rows = Array.isArray(trace) ? trace : [];
     var sites = [];
@@ -618,6 +646,10 @@
     block.className = "bubble " + role;
     if (message.error) block.classList.add("error");
     if (message.pending) block.classList.add("pending");
+    if (role === "assistant") {
+      var thinking = thinkingPanel(message.thinking);
+      if (thinking) block.appendChild(thinking);
+    }
     var raw = typeof message.content === "string" ? message.content : "";
     var rendered = role === "assistant" && !message.error
       ? presentAnswer(raw, message.evidence)
@@ -825,6 +857,7 @@
     var source = "direct";
     var evidence = [];
     var trace = [];
+    var thinking = [];
     var model = "";
     var errored = null;
 
@@ -860,6 +893,16 @@
               ok: true,
               steps: [{ ok: true, detail: typeof event.text === "string" ? event.text.slice(0, 400) : "" }],
             });
+          } else if (event.type === "thinking" && typeof event.text === "string" && event.text.trim()) {
+            thinking.push(event.text.trim());
+            for (var t = 0; t < session.messages.length; t++) {
+              if (session.messages[t].pending) {
+                session.messages[t].thinking = thinking.slice();
+                break;
+              }
+            }
+            if (!reply) updatePending(session, "Thinking…");
+            renderLog();
           } else if (event.type === "token" && typeof event.text === "string") {
             reply += event.text;
             updatePending(session, reply || "Thinking…");
@@ -883,6 +926,7 @@
         source: source || "direct",
         evidence: evidence,
         trace: trace,
+        thinking: thinking,
       });
     } catch (err) {
       replacePending(session, {
