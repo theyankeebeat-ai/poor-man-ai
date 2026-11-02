@@ -13,6 +13,8 @@ var (
 	codeRE          = regexp.MustCompile(`(?i)\b(apply_patch|pytest|refactor|fix (?:the )?(?:test|bug|build|lint)|yarn\s+(?:lint|install|add|ci|run\b)|npm\s+(?:run\s+\w+|install|ci|i\b|add)|pnpm\s+(?:lint|install|i\b|add|run\b)|eslint|(?:can you |please )?(?:run|execute)\s+(?:yarn|npm|pnpm|pytest|npx)\b|add a (?:route|endpoint|test)|write_file|git diff|typescript|fastapi route|tsc --noEmit|failing tests|patch (?:the )?(?:file|code)|implement (?:a |the )?|create (?:a |the )?(?:vite|react|app|website|project|file)|build (?:a |the )?(?:vite|react|app|website|project)|generate (?:the )?(?:vite|react|files|app))\b`)
 	howtoRE         = regexp.MustCompile(`(?i)\b(how(?:\s+to)?|steps?|install|setup|configure|example|write|program|code|hello\s*world)\b`)
 	weatherRE       = regexp.MustCompile(`(?i)\b(weather|forecast|temperature|temp|rain|umbrella|jacket|°[cf]|humid|wind)\b`)
+	clockRE         = regexp.MustCompile(`(?i)\b(?:what(?:'s| is) the time|what time is it|current time|local time|time zone|timezone|(?:the )?time in)\b`)
+	clockTailRE     = regexp.MustCompile(`(?i)\b(?:right now|currently|today|now|please)\b`)
 	mediaRE         = regexp.MustCompile(`(?i)\b(youtube|video|image|picture|photo|summarize)\b|https?://(?:www\.)?(?:youtube\.com|youtu\.be)/`)
 	sportsRE        = regexp.MustCompile(`(?i)\b(nfl|nba|wnba|mlb|nhl|mls|soccer|football|basketball|kickoff|monday night|sunday night|this weekend|who(?:'s| is) playing|what teams|what time (?:are|is) (?:they|it) playing)\b`)
 	newsRE          = regexp.MustCompile(`(?i)\b(news|today|yesterday|this week|this month|what happened|latest|breaking|ipo|election|elections|voted|voting)\b`)
@@ -101,6 +103,9 @@ func modeOf(message, goal string) string {
 	if howtoRE.MatchString(q) {
 		return "howto"
 	}
+	if clockQuestion(q) || clockQuestion(raw) {
+		return "time"
+	}
 	if isGreetingOnly(raw) {
 		return "chat"
 	}
@@ -134,7 +139,7 @@ func think(message string, history []turn) thought {
 		Goal:     goal,
 		Parts:    parts,
 		Cheap:    cheap,
-		NeedsWeb: !cheap && mode != "code",
+		NeedsWeb: !cheap && mode != "code" && mode != "weather" && mode != "time",
 		Follow:   "no",
 	}
 	// A short follow-up inherits the previous subject only when it is elliptical.
@@ -197,6 +202,19 @@ func placeFrom(message string) string {
 		return ""
 	}
 	return strings.Trim(strings.TrimSpace(m[1]), " .,")
+}
+
+func clockQuestion(s string) bool {
+	return clockRE.MatchString(s) && !sportsRE.MatchString(s)
+}
+
+func clockPlace(message string) string {
+	place := placeFrom(message)
+	if place == "" {
+		return ""
+	}
+	place = clockTailRE.ReplaceAllString(place, " ")
+	return strings.Trim(collapseSpace(place), " .,?")
 }
 
 func lastUser(history []turn) string {

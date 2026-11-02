@@ -13,6 +13,7 @@
     rag_search: "Local corpus",
     web_search: "Web search",
     weather_compare: "Weather",
+    local_time: "Local time",
     none: "No source",
   };
 
@@ -201,7 +202,7 @@
     if (!session || !session.messages.length) {
       var welcome = document.createElement("p");
       welcome.className = "welcome";
-      welcome.textContent = "Ask a question. The Go brain answers from the local corpus, web search, weather, and optional Grok.";
+      welcome.textContent = "Ask a question. The Go brain answers from the local corpus, web search, weather, local time, and optional Grok.";
       logEl.appendChild(welcome);
       return;
     }
@@ -883,7 +884,7 @@
             });
           } else if (event.type === "observation") {
             var obsName = typeof event.name === "string" ? event.name : "observation";
-            if (obsName === "rag_search" || obsName === "web_search" || obsName === "weather_compare") {
+            if (obsName === "rag_search" || obsName === "web_search" || obsName === "weather_compare" || obsName === "local_time") {
               var hits = parseEvidence(event.text);
               if (hits.length) evidence = evidence.concat(hits);
               source = obsName;

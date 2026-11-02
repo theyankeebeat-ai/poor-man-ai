@@ -19,6 +19,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	_ "time/tzdata"
 	"unicode"
 )
 
@@ -429,6 +430,70 @@ func weatherReport(message string) (string, []webHit) {
 	return line, []webHit{{Title: "Open-Meteo", URL: src, Snippet: line}}
 }
 
+func timeReport(message string) (string, []webHit) {
+	place := clockPlace(message)
+	if place == "" {
+		now := time.Now().UTC().Format("Monday, 2 January 2006, 15:04")
+		line := "No city was named. The time in UTC is " + now + " UTC."
+		return line, []webHit{{Title: "UTC", URL: "https://www.iana.org/time-zones", Snippet: line}}
+	}
+	g, err := locatePlace(place)
+	if err != nil {
+		if errors.Is(err, errPlaceNotFound) {
+			return "I could not find that place in the Open-Meteo gazetteer.", nil
+		}
+		return "Open-Meteo did not respond, so I could not look up the time.", nil
+	}
+	loc, zone, err := placeLocation(g)
+	if err != nil {
+		return "Open-Meteo did not return a timezone for " + g.Name + ".", nil
+	}
+	now := time.Now().In(loc)
+	line := fmt.Sprintf("%s, %s: %s (%s).", g.Name, g.Country, now.Format("Monday, 2 January 2006, 15:04 MST"), zone)
+	return line, []webHit{{Title: "Open-Meteo", URL: "https://open-meteo.com/", Snippet: line}}
+}
+
+func placeLocation(g geoPlace) (*time.Location, string, error) {
+	if loc, err := loadZone(g.Timezone); err == nil {
+		return loc, g.Timezone, nil
+	}
+	var fx struct {
+		Timezone string `json:"timezone"`
+		Abbr     string `json:"timezone_abbreviation"`
+		Offset   int    `json:"utc_offset_seconds"`
+	}
+	raw := fmt.Sprintf(
+		"https://api.open-meteo.com/v1/forecast?latitude=%f&longitude=%f&current=temperature_2m&timezone=auto",
+		g.Latitude, g.Longitude,
+	)
+	if err := getJSON(raw, &fx); err != nil {
+		return nil, "", err
+	}
+	if loc, err := loadZone(fx.Timezone); err == nil {
+		return loc, fx.Timezone, nil
+	}
+	if strings.TrimSpace(fx.Timezone) == "" && strings.TrimSpace(fx.Abbr) == "" {
+		return nil, "", fmt.Errorf("no timezone")
+	}
+	name := fx.Abbr
+	if name == "" {
+		name = "UTC"
+	}
+	zone := fx.Timezone
+	if zone == "" {
+		zone = name
+	}
+	return time.FixedZone(name, fx.Offset), zone, nil
+}
+
+func loadZone(name string) (*time.Location, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, fmt.Errorf("empty timezone")
+	}
+	return time.LoadLocation(name)
+}
+
 func weatherCode(code int) string {
 	switch code {
 	case 0:
@@ -459,6 +524,7 @@ type geoPlace struct {
 	Longitude float64
 	Pop       int
 	Feature   string
+	Timezone  string
 }
 
 type placeAttempt struct {
@@ -538,6 +604,7 @@ func geoSearch(name string) ([]geoPlace, error) {
 			Longitude   float64 `json:"longitude"`
 			Population  int     `json:"population"`
 			FeatureCode string  `json:"feature_code"`
+			Timezone    string  `json:"timezone"`
 		} `json:"results"`
 	}
 	raw := "https://geocoding-api.open-meteo.com/v1/search?count=10&name=" + url.QueryEscape(name)
@@ -549,6 +616,7 @@ func geoSearch(name string) ([]geoPlace, error) {
 		out = append(out, geoPlace{
 			Name: row.Name, Country: row.Country, Code: row.CountryCode, Admin1: row.Admin1,
 			Latitude: row.Latitude, Longitude: row.Longitude, Pop: row.Population, Feature: row.FeatureCode,
+			Timezone: row.Timezone,
 		})
 	}
 	return out, nil

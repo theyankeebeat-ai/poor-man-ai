@@ -1,6 +1,7 @@
 package main
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -70,5 +71,41 @@ func TestLocateBelgradeSerbia(t *testing.T) {
 	low := strings.ToLower(line)
 	if !strings.Contains(low, "belgrade") || !strings.Contains(low, "serbia") {
 		t.Fatalf("line %q", line)
+	}
+}
+
+func TestClockQuestionRoutesToTime(t *testing.T) {
+	q := "what time is it in belgrade serbia ?"
+	if got := modeOf(q, q); got != "time" {
+		t.Fatalf("mode %s", got)
+	}
+	th := think(q, nil)
+	if th.Mode != "time" || th.NeedsWeb {
+		t.Fatalf("thought %+v", th)
+	}
+	if modeOf("what time are they playing", "what time are they playing") == "time" {
+		t.Fatal("kickoff routed to the clock")
+	}
+	weather := "what is the weather in Belgrade, Serbia?"
+	if modeOf(weather, weather) != "weather" {
+		t.Fatal("weather question left the weather handler")
+	}
+}
+
+func TestTimeInBelgradeSerbia(t *testing.T) {
+	line, hits := timeReport("what time is it in belgrade serbia ?")
+	if len(hits) == 0 || hits[0].Snippet == "" {
+		t.Fatalf("time %q", line)
+	}
+	low := strings.ToLower(line)
+	if !strings.Contains(low, "belgrade") || !strings.Contains(low, "serbia") || !strings.Contains(line, "Europe/Belgrade") {
+		t.Fatalf("line %q", line)
+	}
+	if !regexp.MustCompile(`\d{2}:\d{2}`).MatchString(line) {
+		t.Fatalf("no clock in %q", line)
+	}
+	tokyo, tokyoHits := timeReport("what time is it in Tokyo, Japan?")
+	if len(tokyoHits) == 0 || !strings.Contains(tokyo, "Asia/Tokyo") || !strings.Contains(tokyo, "Japan") {
+		t.Fatalf("tokyo %q", tokyo)
 	}
 }

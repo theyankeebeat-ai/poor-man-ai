@@ -12,6 +12,7 @@ func toolList() []map[string]any {
 		{"memory_write", "Append one JSONL fact. This does not train weights.", objSchema("fact")},
 		{"memory_search", "Token-overlap search over memory.jsonl.", objSchema("query")},
 		{"weather_compare", "Open-Meteo geocode plus current conditions.", objSchema("place")},
+		{"local_time", "Open-Meteo geocode plus the current civil time in that city.", objSchema("place")},
 		{"final_answer", "Jinja answer template: one block per question, then Citations.", objSchema("text")},
 		{"consult_knowledge", "Rank markdown playbooks shipped with the Go binary.", objSchema("query")},
 	}

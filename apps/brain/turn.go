@@ -37,12 +37,15 @@ func runTurn(message string, history []turn, mode string, thinking string, emit 
 		th.Packs = append(th.Packs, p.Name)
 	}
 	crew := rankCrew(message, th.Mode, len(history))
-	if th.Mode == "weather" {
+	if th.Mode == "weather" || th.Mode == "time" {
 		th.NeedsWeb = false
 	}
 	plan := planText(th)
 	if th.Mode == "weather" {
 		plan = strings.Replace(plan, "Cheap path — skip web and crew.", "Open-Meteo current conditions. No web search.", 1)
+	}
+	if th.Mode == "time" {
+		plan = strings.Replace(plan, "Cheap path — skip web and crew.", "Open-Meteo timezone and the civil clock. No web search.", 1)
 	}
 	emit(event{Type: "plan", Text: plan + " · Crew rank: " + strings.Join(crew, ", ")})
 
@@ -74,13 +77,25 @@ func runTurn(message string, history []turn, mode string, thinking string, emit 
 	}
 	emit(event{Type: "plan", Text: "max_steps=" + jsonNumber(steps) + " mode=" + th.Mode})
 
-	if th.Mode == "weather" {
-		text, hits := weatherReport(message)
+	if th.Mode == "weather" || th.Mode == "time" {
+		tool := "weather_compare"
+		place := placeFrom(message)
+		var text string
+		var hits []webHit
+		remember := true
+		if th.Mode == "time" {
+			tool = "local_time"
+			place = clockPlace(message)
+			text, hits = timeReport(message)
+			remember = false
+		} else {
+			text, hits = weatherReport(message)
+		}
 		toolCalls++
-		emit(event{Type: "tool", Name: "weather_compare", Args: map[string]any{"place": placeFrom(message)}})
+		emit(event{Type: "tool", Name: tool, Args: map[string]any{"place": place}})
 		raw, _ := json.Marshal(hits)
-		emit(event{Type: "observation", Name: "weather_compare", Text: string(raw)})
-		finish(emit, text, hitsToSources(hits), start, llmCalls, toolCalls, true)
+		emit(event{Type: "observation", Name: tool, Text: string(raw)})
+		finish(emit, text, hitsToSources(hits), start, llmCalls, toolCalls, remember)
 		return
 	}
 
