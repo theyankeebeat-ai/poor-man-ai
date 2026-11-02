@@ -37,7 +37,14 @@ func runTurn(message string, history []turn, mode string, thinking string, emit 
 		th.Packs = append(th.Packs, p.Name)
 	}
 	crew := rankCrew(message, th.Mode, len(history))
-	emit(event{Type: "plan", Text: planText(th) + " · Crew rank: " + strings.Join(crew, ", ")})
+	if th.Mode == "weather" {
+		th.NeedsWeb = false
+	}
+	plan := planText(th)
+	if th.Mode == "weather" {
+		plan = strings.Replace(plan, "Cheap path — skip web and crew.", "Open-Meteo current conditions. No web search.", 1)
+	}
+	emit(event{Type: "plan", Text: plan + " · Crew rank: " + strings.Join(crew, ", ")})
 
 	if mode == "code" && xaiKey() == "" {
 		emit(event{Type: "error", Text: "code mode needs a model key: set XAI_API_KEY. This Go runtime does not run a shell."})
@@ -90,14 +97,20 @@ func runTurn(message string, history []turn, mode string, thinking string, emit 
 		aiBacked := false
 		newsish := newsRE.MatchString(part) || newsRE.MatchString(searchText)
 		if th.NeedsWeb && thinking != "off" {
-			found := webSearch(searchText)
+			found, misses := webSearch(searchText)
 			found = diversifyHits(part, rankHits(searchText, dedupeHits(found, 12)))
 			if len(found) > 8 {
 				found = found[:8]
 			}
+			if found == nil {
+				found = []webHit{}
+			}
 			toolCalls++
 			emit(event{Type: "tool", Name: "web_search", Args: map[string]any{"query": searchText}})
-			b, _ := json.Marshal(found)
+			b, _ := json.Marshal(struct {
+				Misses []engineMiss `json:"misses,omitempty"`
+				Hits   []webHit     `json:"hits"`
+			}{Misses: misses, Hits: found})
 			emit(event{Type: "observation", Name: "web_search", Text: string(b)})
 			for _, hit := range found {
 				if isWikipediaURL(hit.URL) {

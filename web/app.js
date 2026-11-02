@@ -734,9 +734,9 @@
     if (typeof text !== "string" || !text.trim()) return [];
     try {
       var parsed = JSON.parse(text);
-      if (!Array.isArray(parsed)) return [];
-      return parsed
-        .filter(function (row) { return row && typeof row.url === "string"; })
+      var rows = Array.isArray(parsed) ? parsed : parsed && Array.isArray(parsed.hits) ? parsed.hits : [];
+      return rows
+        .filter(function (row) { return row && typeof row.url === "string" && row.url; })
         .map(function (row) {
           return {
             title: typeof row.title === "string" ? row.title : "Source",

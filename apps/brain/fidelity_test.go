@@ -218,13 +218,76 @@ func TestParseAIModeKeepsAIHits(t *testing.T) {
 	body := []byte(`{"items":[
 		{"title":"Google AI Mode","snippet":"Paris is the capital.","url":"https://www.google.com/search?udm=50&q=France","source":"google-ai"},
 		{"title":"Empty","snippet":"","url":"https://example.com/empty","source":"bing"}
+	],"trace":[
+		{"source":"google-ai","label":"Google AI Mode","ok":true,"steps":[{"ok":true,"detail":"Read the answer panel."}]},
+		{"source":"yandex","label":"Yandex","ok":false,"steps":[{"ok":false,"detail":"Yandex blocked the lookup with a challenge page."}]},
+		{"source":"duck-ai","label":"Duck.ai","ok":false,"steps":[{"ok":false,"detail":"Duck.ai replied with web search off, so that panel was not used."}]}
 	]}`)
-	hits := parseAIMode(body)
+	hits, misses := parseAIMode(body)
 	if len(hits) != 1 || hits[0].Source != "google-ai" || hits[0].Title != "Google AI Mode" {
 		t.Fatalf("hits=%#v", hits)
 	}
 	if !aiModeHit(hits[0]) {
 		t.Fatalf("hit=%#v", hits[0])
+	}
+	if len(misses) != 2 {
+		t.Fatalf("misses=%#v", misses)
+	}
+	if misses[0].Source != "yandex" || misses[0].Status != "challenge" || misses[0].Detail == "" {
+		t.Fatalf("challenge miss=%#v", misses[0])
+	}
+	if misses[1].Source != "duck-ai" || misses[1].Status != "miss" {
+		t.Fatalf("duck miss=%#v", misses[1])
+	}
+}
+
+func TestDuckChromeIsNotTheDefinition(t *testing.T) {
+	table := "Duck.ai said Gemma 4 31B In furniture, a table is a piece of furniture with a flat top and one or more legs."
+	parts := splitSentences(table)
+	if len(parts) != 1 || parts[0] == "Duck." || strings.HasPrefix(parts[0], "ai said") {
+		t.Fatalf("split=%q", parts)
+	}
+	lead, _ := answerPart("what is a table?", table, nil)
+	if strings.Contains(strings.ToLower(lead), "ai said") || strings.Contains(lead, "Gemma") {
+		t.Fatalf("table lead=%q", lead)
+	}
+	if !strings.Contains(lead, "a table is a piece of furniture") {
+		t.Fatalf("table lead=%q", lead)
+	}
+	bowl := "Duck.ai said Gemma 4 31B A bowl is a round, open-top container used for food."
+	lead, _ = answerPart("what is a bowl?", bowl, nil)
+	if strings.Contains(strings.ToLower(lead), "ai said") || strings.Contains(lead, "Gemma") || !strings.Contains(lead, "A bowl is a round") {
+		t.Fatalf("bowl lead=%q", lead)
+	}
+	frag := "ai said Gemma 4 31B In furniture, a table is a piece of furniture with a flat top and one or more legs."
+	if bestDefinition([]string{frag}, "table") != "" {
+		t.Fatal("chrome fragment was kept")
+	}
+	defined := "A bowl is primarily a round, deep dish or container that is open at the top and used for preparing food. The word also refers to: The contents of a bowl (e.g., \"a bowl of soup\"). A large stadium shaped like a bowl often hosts sports."
+	lead, _ = answerPart("define a bowl?", defined, nil)
+	if !strings.HasPrefix(lead, "A bowl is primarily") {
+		t.Fatalf("primary definition lost: %q", lead)
+	}
+	us := splitSentences("U.S. officials said the vote was held on Tuesday morning.")
+	if len(us) != 1 {
+		t.Fatalf("abbreviation split=%q", us)
+	}
+	two := splitSentences("A table is a piece of furniture. A bowl is a round container.")
+	if len(two) != 2 {
+		t.Fatalf("sentences=%q", two)
+	}
+}
+
+func TestCitationAmpersandIsNotEscaped(t *testing.T) {
+	out := renderAnswer([]answerBlock{{Lead: "A bowl is a container."}}, []source{{
+		Title: "Brave Ask",
+		URL:   "https://search.brave.com/ask?q=bowl&source=web",
+	}})
+	if strings.Contains(out, "&amp;") || strings.Contains(out, "&#") {
+		t.Fatalf("escaped citation: %s", out)
+	}
+	if !strings.Contains(out, "q=bowl&source=web") {
+		t.Fatalf("url missing: %s", out)
 	}
 }
 

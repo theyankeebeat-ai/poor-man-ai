@@ -29,41 +29,61 @@ type webHit struct {
 	Source  string `json:"source,omitempty"`
 }
 
+// engineMiss is an AI-mode engine that returned no answer. Status "challenge"
+// means the page was a bot check. There is no snippet: a blocked engine is
+// not given an invented one.
+type engineMiss struct {
+	Source string `json:"source"`
+	Title  string `json:"title"`
+	Status string `json:"status"`
+	Detail string `json:"detail"`
+}
+
 var httpClient = &http.Client{Timeout: 8 * time.Second}
+
+type aiMemoEntry struct {
+	hits   []webHit
+	misses []engineMiss
+}
 
 type aiModeMemo struct {
 	mu sync.Mutex
-	m  map[string][]webHit
+	m  map[string]aiMemoEntry
 }
 
-var aiMemo = aiModeMemo{m: map[string][]webHit{}}
+var aiMemo = aiModeMemo{m: map[string]aiMemoEntry{}}
 
-func (c *aiModeMemo) get(q string) ([]webHit, bool) {
+func (c *aiModeMemo) get(q string) (aiMemoEntry, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	hits, ok := c.m[q]
+	entry, ok := c.m[q]
 	if !ok {
-		return nil, false
+		return aiMemoEntry{}, false
 	}
-	return append([]webHit(nil), hits...), true
+	return aiMemoEntry{
+		hits:   append([]webHit(nil), entry.hits...),
+		misses: append([]engineMiss(nil), entry.misses...),
+	}, true
 }
 
-func (c *aiModeMemo) put(q string, hits []webHit) {
+func (c *aiModeMemo) put(q string, entry aiMemoEntry) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if len(c.m) > 32 {
-		c.m = map[string][]webHit{}
+		c.m = map[string]aiMemoEntry{}
 	}
-	c.m[q] = append([]webHit(nil), hits...)
+	c.m[q] = aiMemoEntry{
+		hits:   append([]webHit(nil), entry.hits...),
+		misses: append([]engineMiss(nil), entry.misses...),
+	}
 }
 
-func webSearch(query string) []webHit {
-	var hits []webHit
-	hits = append(hits, aiModeSearch(query)...)
+func webSearch(query string) ([]webHit, []engineMiss) {
+	hits, misses := aiModeSearch(query)
 	if len(hits) == 0 || newsRE.MatchString(query) || sportsRE.MatchString(query) {
 		hits = append(hits, googleNews(query)...)
 	}
-	return dedupeHits(hits, 8)
+	return dedupeHits(hits, 8), misses
 }
 
 // isWikipediaURL is true for Wikipedia / Wikimedia hosts. Those pages are never
@@ -116,38 +136,39 @@ func dedupeHits(in []webHit, limit int) []webHit {
 	return out
 }
 
-func aiModeSearch(query string) []webHit {
+func aiModeSearch(query string) ([]webHit, []engineMiss) {
 	query = strings.TrimSpace(query)
 	if query == "" {
-		return nil
+		return nil, nil
 	}
-	if hits, ok := aiMemo.get(query); ok {
-		return hits
+	if entry, ok := aiMemo.get(query); ok {
+		return entry.hits, entry.misses
 	}
-	hits := runAIModeSearch(query)
-	aiMemo.put(query, hits)
-	return hits
+	hits, misses := runAIModeSearch(query)
+	aiMemo.put(query, aiMemoEntry{hits: hits, misses: misses})
+	return hits, misses
 }
 
-func runAIModeSearch(query string) []webHit {
+func runAIModeSearch(query string) ([]webHit, []engineMiss) {
 	script := findBrowserSearch()
 	if script == "" {
 		log.Printf("search-engine AI mode: browser_search.py was not found")
-		return nil
+		return nil, nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 110*time.Second)
 	defer cancel()
 	cmd := pythonCommand(ctx, "-c", aiModeRunner, filepath.Dir(script), query)
 	if cmd == nil {
 		log.Printf("search-engine AI mode: python was not found")
-		return nil
+		return nil, nil
 	}
 	out, err := cmd.Output()
 	if err != nil {
 		log.Printf("search-engine AI mode: %v", err)
-		return nil
+		return nil, nil
 	}
-	return parseAIMode(out)
+	hits, misses := parseAIMode(out)
+	return hits, misses
 }
 
 const aiModeRunner = `import json, sys
@@ -201,7 +222,7 @@ func findBrowserSearch() string {
 	return ""
 }
 
-func parseAIMode(body []byte) []webHit {
+func parseAIMode(body []byte) ([]webHit, []engineMiss) {
 	var payload struct {
 		Items []struct {
 			Title   string `json:"title"`
@@ -209,11 +230,21 @@ func parseAIMode(body []byte) []webHit {
 			Snippet string `json:"snippet"`
 			Source  string `json:"source"`
 		} `json:"items"`
+		Trace []struct {
+			Source string `json:"source"`
+			Label  string `json:"label"`
+			OK     bool   `json:"ok"`
+			Steps  []struct {
+				OK     bool   `json:"ok"`
+				Detail string `json:"detail"`
+			} `json:"steps"`
+		} `json:"trace"`
 	}
 	if json.Unmarshal(body, &payload) != nil {
-		return nil
+		return nil, nil
 	}
 	var out []webHit
+	answered := map[string]struct{}{}
 	for _, item := range payload.Items {
 		if strings.TrimSpace(item.Snippet) == "" {
 			continue
@@ -224,8 +255,66 @@ func parseAIMode(body []byte) []webHit {
 			Snippet: item.Snippet,
 			Source:  item.Source,
 		})
+		if item.Source != "" {
+			answered[item.Source] = struct{}{}
+		}
 	}
-	return out
+	var misses []engineMiss
+	for _, row := range payload.Trace {
+		if row.OK {
+			continue
+		}
+		if _, ok := answered[row.Source]; ok {
+			continue
+		}
+		detail, status := missDetail(row.Steps)
+		if detail == "" {
+			detail = row.Label + " did not return an answer."
+		}
+		title := row.Label
+		if title == "" {
+			title = row.Source
+		}
+		misses = append(misses, engineMiss{
+			Source: row.Source,
+			Title:  title,
+			Status: status,
+			Detail: detail,
+		})
+	}
+	return out, misses
+}
+
+func missDetail(steps []struct {
+	OK     bool   `json:"ok"`
+	Detail string `json:"detail"`
+}) (string, string) {
+	last := ""
+	challenge := ""
+	for _, step := range steps {
+		if step.OK || strings.TrimSpace(step.Detail) == "" {
+			continue
+		}
+		last = strings.TrimSpace(step.Detail)
+		if missStatus(last) == "challenge" {
+			challenge = last
+		}
+	}
+	if challenge != "" {
+		return challenge, "challenge"
+	}
+	if last == "" {
+		return "", "miss"
+	}
+	return last, "miss"
+}
+
+func missStatus(detail string) string {
+	d := strings.ToLower(detail)
+	if strings.Contains(d, "challenge") || strings.Contains(d, "captcha") || strings.Contains(d, "unusual traffic") {
+		return "challenge"
+	}
+	return "miss"
 }
 
 func aiModeHit(hit webHit) bool {

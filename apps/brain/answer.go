@@ -94,6 +94,10 @@ var (
 	answerChipRE     = regexp.MustCompile(`(?:^|\s)[^\s·•∙⋅|.!?]{1,40}(?:\s+[^\s·•∙⋅|.!?]{1,40}){0,3}\s*[·•∙⋅|]\s*[^\s·•∙⋅|.!?]{1,40}(?:\s+[^\s·•∙⋅|.!?]{1,40}){0,3}\s+\+\d+\b`)
 	answerFinishedRE = regexp.MustCompile(`(?:^|\s)Finished(?:\s+\+\d+\b)?(\s+\p{Lu}|$)`)
 	answerBadgeRE    = regexp.MustCompile(`(?:^|\s)\+\d+\b(\s+\p{Lu}|\s*[.!?]|$)`)
+	// Panel chrome that can share the answer node. "ai said" is what remains
+	// after "Duck.ai" is split on the dot. The model name is not the answer.
+	leadChromeRE  = regexp.MustCompile(`(?i)^(?:duck\.ai\s+said|ai\s+said|gemma(?:\s+\d+[\w.]*){1,3}(?:\s+beta)?|2nd\s+opinion|second\s+opinion)\s+`)
+	modelChromeRE = regexp.MustCompile(`(?i)\bgemma\s+\d`)
 )
 
 func leadSentence(query, text string) (lead, support string) {
@@ -113,6 +117,9 @@ func leadSentence(query, text string) (lead, support string) {
 	bestI, bestS := -1, -1
 	secondI, secondS := -1, -1
 	for i, sent := range parts {
+		if panelChromeSentence(sent) {
+			continue
+		}
 		score := fuzzyOverlap(q, tokenize(sent)) + proximityBonus(query, sent)
 		if head != "" && regexp.MustCompile(`(?i)(?:^|\.\s+)`+regexp.QuoteMeta(head)+`\s+(is|are|was|were)\b`).MatchString(fold(sent)) {
 			score += 8
@@ -143,7 +150,12 @@ func leadSentence(query, text string) (lead, support string) {
 		}
 	}
 	if bestI < 0 || bestS < 1 {
-		return clip(parts[0], 500), ""
+		for _, part := range parts {
+			if !panelChromeSentence(part) {
+				return clip(part, 500), ""
+			}
+		}
+		return "I could not extract a supported sentence for that question.", ""
 	}
 	lead = parts[bestI]
 	if secondI >= 0 && secondS >= 1 && secondI != bestI {
@@ -198,13 +210,13 @@ func splitSentences(text string) []string {
 			continue
 		}
 		b.WriteRune(r)
-		if r == '.' && i > 0 && i+1 < len(runes) && runes[i-1] >= '0' && runes[i-1] <= '9' && runes[i+1] >= '0' && runes[i+1] <= '9' {
+		// Split on ". " / "! " / "? " before a capital. A dot inside a token
+		// (Duck.ai, U.S., 16.5) is not a sentence boundary.
+		if !sentenceBoundary(runes, i) {
 			continue
 		}
-		if r == '.' || r == '!' || r == '?' {
-			keepSentence(&out, b.String())
-			b.Reset()
-		}
+		keepSentence(&out, b.String())
+		b.Reset()
 	}
 	keepSentence(&out, b.String())
 	if len(out) == 0 {
@@ -215,6 +227,30 @@ func splitSentences(text string) []string {
 		return nil
 	}
 	return out
+}
+
+func sentenceBoundary(runes []rune, i int) bool {
+	r := runes[i]
+	if r != '.' && r != '!' && r != '?' {
+		return false
+	}
+	if r == '.' && i > 0 && i+1 < len(runes) && runes[i-1] >= '0' && runes[i-1] <= '9' && runes[i+1] >= '0' && runes[i+1] <= '9' {
+		return false
+	}
+	j := i + 1
+	if j >= len(runes) {
+		return true
+	}
+	if !unicode.IsSpace(runes[j]) {
+		return false
+	}
+	for j < len(runes) && unicode.IsSpace(runes[j]) {
+		j++
+	}
+	if j >= len(runes) {
+		return true
+	}
+	return unicode.IsUpper(runes[j])
 }
 
 func keepSentence(out *[]string, raw string) {
@@ -243,6 +279,32 @@ func sentenceOK(s string) bool {
 	return strings.ContainsAny(s, ".!") || copulaAfterHead.MatchString(s)
 }
 
+func stripLeadChrome(text string) string {
+	text = strings.TrimSpace(text)
+	for i := 0; i < 6; i++ {
+		next := strings.TrimSpace(leadChromeRE.ReplaceAllString(text, ""))
+		if next == text {
+			break
+		}
+		text = next
+	}
+	return text
+}
+
+// panelChromeSentence is a fragment of the answer panel ("ai said", a model
+// name, "2nd opinion"), even when the fragment still contains "is a".
+func panelChromeSentence(s string) bool {
+	t := strings.TrimSpace(s)
+	if t == "" || isAnswerChrome(t) {
+		return true
+	}
+	f := fold(t)
+	if strings.Contains(f, "ai said") || strings.Contains(f, "2nd opinion") || strings.Contains(f, "second opinion") {
+		return true
+	}
+	return modelChromeRE.MatchString(t)
+}
+
 func isAnswerChrome(s string) bool {
 	t := strings.TrimSpace(s)
 	if t == "" || strings.EqualFold(t, "finished") {
@@ -263,6 +325,7 @@ func stripAnswerChrome(text, query string) string {
 	text = answerFinishedRE.ReplaceAllString(text, "$1")
 	text = answerBadgeRE.ReplaceAllString(text, "$1")
 	text = stripEchoedQuestion(text, query)
+	text = stripLeadChrome(text)
 	return dedupeAnswer(collapseSpace(text))
 }
 

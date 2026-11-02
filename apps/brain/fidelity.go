@@ -657,7 +657,8 @@ func askedSubject(part string) string {
 }
 
 func sentenceLeadsWith(sent, subject string) bool {
-	return regexp.MustCompile(`(?i)^` + regexp.QuoteMeta(fold(subject)) + `\s+(is|are|was|were)\b`).MatchString(fold(sent))
+	// "A bowl is primarily a round dish" still opens on the subject.
+	return regexp.MustCompile(`(?i)^(?:(?:a|an|the)\s+)?` + regexp.QuoteMeta(fold(subject)) + `\s+(is|are|was|were)\b`).MatchString(fold(sent))
 }
 
 func sentenceDefines(sent, subject string) bool {
@@ -670,7 +671,7 @@ func sentenceDefines(sent, subject string) bool {
 func bestDefinition(sents []string, subject string) string {
 	best, bestS := "", 0
 	for _, s := range sents {
-		if !sentenceDefines(s, subject) {
+		if panelChromeSentence(s) || !sentenceDefines(s, subject) {
 			continue
 		}
 		score := 8

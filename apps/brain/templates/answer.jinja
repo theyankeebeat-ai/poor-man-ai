@@ -1,4 +1,4 @@
-{% for block in blocks -%}
+{% autoescape off %}{% for block in blocks -%}
 {{ block.heading }}{{ block.lead }}
 {%- if block.support %}
 
@@ -8,4 +8,4 @@
 {%- if citations %}
 Citations:
 {{ citations }}
-{%- endif %}
+{%- endif %}{% endautoescape %}
