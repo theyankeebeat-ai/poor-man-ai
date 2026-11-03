@@ -27,12 +27,11 @@
   var form = document.getElementById("composer");
   var input = document.getElementById("message");
   var sendBtn = document.getElementById("send");
-  var statusEl = document.getElementById("brain-status");
 
   applyTheme(storedTheme());
   renderSessions();
   renderLog();
-  ensureBrain().then(probe);
+  ensureBrain();
   input.focus();
 
   document.getElementById("new-chat").addEventListener("click", function () {
@@ -40,6 +39,15 @@
     if (current && current.messages.length === 0) {
       input.focus();
       return;
+    }
+    for (var i = 0; i < sessions.length; i++) {
+      if (isPlaceholder(sessions[i])) {
+        activeId = sessions[i].id;
+        renderSessions();
+        renderLog();
+        input.focus();
+        return;
+      }
     }
     var session = blankSession();
     sessions.unshift(session);
@@ -134,6 +142,10 @@
     return { id: blankId(), title: "New chat", createdAt: Date.now(), messages: [] };
   }
 
+  function isPlaceholder(session) {
+    return !!(session && !session.messages.length && (!session.title || session.title === "New chat"));
+  }
+
   function active() {
     for (var i = 0; i < sessions.length; i++) {
       if (sessions[i].id === activeId) return sessions[i];
@@ -165,6 +177,7 @@
   function renderSessions() {
     listEl.textContent = "";
     sessions.forEach(function (session) {
+      if (isPlaceholder(session)) return;
       var title = session.title || "New chat";
       var item = document.createElement("li");
       item.className = "session" + (session.id === activeId ? " active" : "");
@@ -199,13 +212,7 @@
   function renderLog() {
     var session = active();
     logEl.textContent = "";
-    if (!session || !session.messages.length) {
-      var welcome = document.createElement("p");
-      welcome.className = "welcome";
-      welcome.textContent = "Ask a question. The Go brain answers from the local corpus, web search, weather, local time, and optional Grok.";
-      logEl.appendChild(welcome);
-      return;
-    }
+    if (!session || !session.messages.length) return;
     session.messages.forEach(function (message) {
       logEl.appendChild(bubble(message));
     });
@@ -941,29 +948,6 @@
       renderSessions();
       renderLog();
       input.focus();
-    }
-  }
-
-  async function probe() {
-    try {
-      await ensureBrain();
-      var response = await fetch((apiBase || "") + "/health", {
-        method: "GET",
-        headers: { accept: "application/json" },
-        cache: "no-store",
-      });
-      if (!response.ok) throw new Error("down");
-      var data = await response.json();
-      if (!data || data.status !== "ok") {
-        statusEl.textContent = "Server: down";
-        return;
-      }
-      var model = typeof data.model === "string" ? data.model : "go-brain";
-      var passages = typeof data.passages === "number" ? data.passages : 0;
-      var host = apiBase ? apiBase.replace(/^https?:\/\//, "") : "local";
-      statusEl.textContent = "Brain: " + model + " · " + passages + " passages · " + host;
-    } catch (_err) {
-      statusEl.textContent = "Server: down";
     }
   }
 })();
