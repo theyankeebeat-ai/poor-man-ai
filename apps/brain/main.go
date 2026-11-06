@@ -11,8 +11,9 @@ import (
 )
 
 func main() {
-	loadCorpus()
-	loadEmbeddings()
+	// Listen first. Corpus + embeddings warm in the background so /health and
+	// browser-offloaded turns are not blocked by the ~20MB research index.
+	go warmBrainData()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", health)
 	mux.HandleFunc("/api/health", health)
@@ -106,24 +107,43 @@ func readJSON(r *http.Request, dest any) error {
 	return json.NewDecoder(io.LimitReader(r.Body, 1_000_000)).Decode(dest)
 }
 
+func warmBrainData() {
+	ensureBrainData()
+}
+
 func health(w http.ResponseWriter, r *http.Request) {
 	passages := 0
 	if corpus != nil {
 		passages = len(corpus.docs)
 	}
-	noteCache(passages > 0)
+	model := embedInfo.Name
+	params := embedInfo.Parameters
+	if passages == 0 || model == "" {
+		cm := peekCorpusMeta()
+		em := peekEmbedMeta()
+		if passages == 0 && cm.Passages > 0 {
+			passages = cm.Passages
+		}
+		if model == "" {
+			model = em.Name
+			params = em.Parameters
+		}
+	}
+	warm := brainWarm()
+	noteCache(warm)
 	writeJSON(w, 200, map[string]any{
 		"status": "ok",
+		"warm":   warm,
 		"cache": map[string]any{
 			"hits":     cacheHits.Load(),
 			"misses":   cacheMisses.Load(),
 			"hit_rate": hitRate(),
 		},
 		"memory_scrub": map[string]int{"kept": len(readFacts()), "dropped": 0},
-		"note":         "Better Poor Man AI Go brain. No Python. NDJSON /chat.",
+		"note":         "Better Poor Man AI Go brain. No Python. NDJSON /chat. Research index warms in the background.",
 		"runtime":      "go",
-		"model":        embedInfo.Name,
-		"parameters":   embedInfo.Parameters,
+		"model":        model,
+		"parameters":   params,
 		"passages":     passages,
 	})
 }

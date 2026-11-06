@@ -21,6 +21,7 @@ var (
 )
 
 func indexRAG(content string, meta map[string]any) ragDoc {
+	ensureBrainData()
 	if meta == nil {
 		meta = map[string]any{}
 	}
@@ -43,6 +44,7 @@ func indexRAG(content string, meta map[string]any) ragDoc {
 }
 
 func listRAG() []ragDoc {
+	ensureBrainData()
 	ragMu.Lock()
 	defer ragMu.Unlock()
 	out := make([]ragDoc, 0, len(ragDocs)+1)
@@ -60,6 +62,7 @@ func listRAG() []ragDoc {
 }
 
 func searchRAG(query string, topK int, minScore float64) []map[string]any {
+	ensureBrainData()
 	if topK <= 0 {
 		topK = 4
 	}

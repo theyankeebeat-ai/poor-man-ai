@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 )
 
 type passage struct {
@@ -39,13 +40,21 @@ type corpusIndex struct {
 	meta   corpusMeta
 }
 
-var corpus *corpusIndex
+var (
+	corpus     *corpusIndex
+	corpusOnce sync.Once
+)
 
 func corpusRoot() string {
 	if d := os.Getenv("BRAIN_CORPUS"); d != "" {
 		return d
 	}
 	return "data"
+}
+
+// ensureCorpus loads the BM25 index once. Cheap chat/math/weather paths skip this.
+func ensureCorpus() {
+	corpusOnce.Do(loadCorpus)
 }
 
 func loadCorpus() {
@@ -87,6 +96,17 @@ func loadCorpus() {
 		idx.meta.Tokens = total
 	}
 	corpus = idx
+}
+
+// peekCorpusMeta reads corpus.meta.json without building the BM25 index.
+func peekCorpusMeta() corpusMeta {
+	var meta corpusMeta
+	b, err := os.ReadFile(filepath.Join(corpusRoot(), "corpus.meta.json"))
+	if err != nil {
+		return meta
+	}
+	_ = json.Unmarshal(b, &meta)
+	return meta
 }
 
 const (

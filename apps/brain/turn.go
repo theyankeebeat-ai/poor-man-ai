@@ -168,6 +168,9 @@ func runTurn(message string, history []turn, mode string, thinking string, emit 
 			}
 		}
 		var localText []string
+		if !aiBacked {
+			ensureBrainData()
+		}
 		if !aiBacked && corpus != nil {
 			hits := corpus.search(q, 4)
 			if len(hits) > 0 {

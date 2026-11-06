@@ -6,7 +6,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const web = path.join(root, "web");
 const out = path.join(web, "out");
 
-const required = ["index.html", "app.js", "styles.css"];
+const required = ["index.html", "app.js", "styles.css", "client-tools.js"];
 for (const name of required) {
   const file = path.join(web, name);
   if (!fs.existsSync(file)) {

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"unicode"
 )
 
@@ -34,8 +35,16 @@ type embedMeta struct {
 	Bytes      int64  `json:"bytes"`
 }
 
-var embeddings *embedTable
-var embedInfo embedMeta
+var (
+	embeddings *embedTable
+	embedInfo  embedMeta
+	embedOnce  sync.Once
+)
+
+// ensureEmbeddings loads potion-base-8M int8 once. Browser-offloaded turns never need it.
+func ensureEmbeddings() {
+	embedOnce.Do(loadEmbeddings)
+}
 
 func loadEmbeddings() {
 	root := corpusRoot()
@@ -57,6 +66,28 @@ func loadEmbeddings() {
 		embedInfo.Name = "minishlab/potion-base-8M"
 		embedInfo.Dtype = "int8"
 	}
+}
+
+// peekEmbedMeta reads embed.meta.json without mapping the int8 weight file.
+func peekEmbedMeta() embedMeta {
+	var meta embedMeta
+	b, err := os.ReadFile(filepath.Join(corpusRoot(), "embed.meta.json"))
+	if err != nil {
+		return meta
+	}
+	_ = json.Unmarshal(b, &meta)
+	return meta
+}
+
+// ensureBrainData loads corpus + embeddings for research/RAG. Safe to call often.
+func ensureBrainData() {
+	ensureCorpus()
+	ensureEmbeddings()
+}
+
+// brainWarm reports whether the research index is fully in memory.
+func brainWarm() bool {
+	return corpus != nil && len(corpus.docs) > 0 && embeddings != nil
 }
 
 func readInt8(path, vocabPath string) (*embedTable, error) {

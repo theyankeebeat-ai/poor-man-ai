@@ -846,11 +846,20 @@
     }
   }
 
+  async function answerFromBrowser(text) {
+    var tools = typeof window !== "undefined" ? window.BPMAIClientTools : null;
+    if (!tools || typeof tools.answerLocally !== "function") return null;
+    try {
+      return await tools.answerLocally(text);
+    } catch (_err) {
+      return null;
+    }
+  }
+
   async function send() {
     var text = input.value.trim();
     var session = active();
     if (!text || !session || sendBtn.disabled) return;
-    await ensureBrain();
     var prior = historyOf(session);
     session.messages.push({ role: "user", content: text });
     if (session.title === "New chat") session.title = text.slice(0, 42);
@@ -870,6 +879,25 @@
     var errored = null;
 
     try {
+      var local = await answerFromBrowser(text);
+      if (local && typeof local.content === "string" && local.content.trim()) {
+        replacePending(session, {
+          role: "assistant",
+          content: local.content.trim(),
+          model: typeof local.model === "string" ? local.model : "browser",
+          source: typeof local.source === "string" ? local.source : "direct",
+          evidence: Array.isArray(local.evidence) ? local.evidence : [],
+          trace: [{
+            label: "browser",
+            ok: true,
+            steps: [{ ok: true, detail: "Answered in the page. Hosted brains were not called." }],
+          }],
+          thinking: [],
+        });
+        return;
+      }
+
+      await ensureBrain();
       await streamChat(
         { message: text, history: prior, thinking_level: "medium" },
         function (event) {

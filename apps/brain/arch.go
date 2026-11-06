@@ -155,8 +155,12 @@ func runtimeProfile() map[string]any {
 }
 
 func datasetMeta() corpusMeta {
+	ensureCorpus()
 	if corpus == nil {
-		return corpusMeta{}
+		return peekCorpusMeta()
+	}
+	if corpus.meta.Passages == 0 {
+		return peekCorpusMeta()
 	}
 	return corpus.meta
 }
