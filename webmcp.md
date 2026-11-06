@@ -43,7 +43,16 @@ Exposed as `window.BPMAIClientTools`:
 - `weatherReport(message)` — Open-Meteo geocode + current conditions
 - `timeReport(message)` — Open-Meteo timezone + civil clock
 - `answerLocally(message)` — returns a reply object or `null`
-- `registerWebMCP()` — best-effort tool registration for agents
+- `runAgent(message)` — thin in-page agent: local tools first, then `BPMAIChat.sendText`
+- `registerWebMCP()` — best-effort tool registration for browser / DevTools agents
+- `listAgentTools()` — names registered for WebMCP consumers
+
+Chat hooks from `web/app.js` as `window.BPMAIChat`:
+
+- `sendText(message, { fromAgent })`
+- `getLastReply()`
+- `clearSession()` / `newChat()`
+- `getStatus()`
 
 Reply objects look like:
 
@@ -56,9 +65,9 @@ Reply objects look like:
 }
 ```
 
-`web/app.js` calls `answerLocally` first inside `send()`. On a hit it writes the assistant bubble with a turn-trace note that hosted brains were not called.
+`web/app.js` calls `answerLocally` first inside `sendText()`. On a hit it writes the assistant bubble with a turn-trace note that hosted brains were not called.
 
-### WebMCP registration
+### WebMCP registration (smart agents)
 
 Feature-detect and prefer the current entry point:
 
@@ -70,11 +79,28 @@ Registered tools (when the browser supports WebMCP):
 
 | Tool | Purpose |
 | --- | --- |
+| `agent_ask` | Preferred natural-language entry. Browser tools first, then chat/brain. |
 | `browser_math` | Evaluate a safe expression in the page |
 | `browser_weather` | Open-Meteo weather from the visitor browser |
 | `browser_local_time` | Local civil time via Open-Meteo timezone |
+| `send_chat` | Drive the chat UI (offload or hosted `/chat`) |
+| `get_last_reply` | Read the latest assistant bubble |
+| `clear_session` / `new_chat` | Session control |
+| `chat_status` | Session id, busy flag, apiBase, WebMCP readiness |
 
-WebMCP is experimental (Chrome origin trial / flags). Ordinary chat does not depend on it. The offload path runs for every visitor.
+External agents (Chrome DevTools MCP with `--category-experimental-webmcp`, Playwright `page.webmcp`, Kitesurf) should prefer **`agent_ask`**. Direct tool calls stay available for precise control.
+
+### Sanitize before the brain
+
+`BPMAIClientTools.sanitizeForBrain` / `sanitizeHistoryForBrain` run on every hosted `/chat` payload (UI, `send_chat`, and `agent_ask` fallback):
+
+- Strip `http(s)` / `www` URLs, markdown links (keep label text), `data:` URIs, emails
+- Strip HTML/script/style tags and common cookie/privacy/subscribe chrome lines
+- Collapse whitespace and cap message length (~8000 chars; history turns ~2000 each)
+
+The chat bubble still shows the user’s original text. Only the brain request is cleaned. A turn-trace step `webmcp-sanitize` appears when content changed.
+
+WebMCP is experimental (Chrome origin trial / flags). Ordinary chat does not depend on it. The offload path and thin agent run for every visitor.
 
 Deploy WebMCP with normal hosting. No Cloud Functions and no Blaze plan are required for tool registration.
 

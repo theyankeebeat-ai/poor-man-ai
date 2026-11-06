@@ -73,7 +73,7 @@
 
   form.addEventListener("submit", function (event) {
     event.preventDefault();
-    send();
+    sendText(input.value);
   });
 
   function storedTheme() {
@@ -856,15 +856,86 @@
     }
   }
 
-  async function send() {
-    var text = input.value.trim();
+  function sanitizeBrainMessage(text) {
+    var tools = typeof window !== "undefined" ? window.BPMAIClientTools : null;
+    if (tools && typeof tools.sanitizeForBrain === "function") {
+      return tools.sanitizeForBrain(text);
+    }
+    return String(text || "").trim();
+  }
+
+  function sanitizeBrainHistory(history) {
+    var tools = typeof window !== "undefined" ? window.BPMAIClientTools : null;
+    if (tools && typeof tools.sanitizeHistoryForBrain === "function") {
+      return tools.sanitizeHistoryForBrain(history);
+    }
+    return Array.isArray(history) ? history : [];
+  }
+
+  function lastAssistant(session) {
+    if (!session || !Array.isArray(session.messages)) return null;
+    for (var i = session.messages.length - 1; i >= 0; i--) {
+      var message = session.messages[i];
+      if (message && message.role === "assistant" && !message.pending) return message;
+    }
+    return null;
+  }
+
+  function clearActiveSession() {
     var session = active();
-    if (!text || !session || sendBtn.disabled) return;
+    if (!session) return { ok: false, detail: "No active session." };
+    session.messages = [];
+    session.title = "New chat";
+    save();
+    renderSessions();
+    renderLog();
+    input.focus();
+    return { ok: true, detail: "Cleared the active chat." };
+  }
+
+  function startNewChat() {
+    var current = active();
+    if (current && current.messages.length === 0) {
+      return { ok: true, sessionId: current.id, detail: "Already on an empty chat." };
+    }
+    for (var i = 0; i < sessions.length; i++) {
+      if (isPlaceholder(sessions[i])) {
+        activeId = sessions[i].id;
+        renderSessions();
+        renderLog();
+        input.focus();
+        return { ok: true, sessionId: activeId, detail: "Switched to an empty chat." };
+      }
+    }
+    var session = blankSession();
+    sessions.unshift(session);
+    activeId = session.id;
+    save();
+    renderSessions();
+    renderLog();
+    input.focus();
+    return { ok: true, sessionId: activeId, detail: "Started a new chat." };
+  }
+
+  async function sendText(rawText, opts) {
+    var text = String(rawText || "").trim();
+    var session = active();
+    var fromAgent = !!(opts && opts.fromAgent);
+    if (!text) {
+      return { ok: false, error: true, content: "Empty message.", model: "", source: "none", evidence: [] };
+    }
+    if (!session) {
+      return { ok: false, error: true, content: "No active session.", model: "", source: "none", evidence: [] };
+    }
+    if (sendBtn.disabled) {
+      return { ok: false, error: true, content: "Busy with another turn.", model: "", source: "none", evidence: [] };
+    }
+
     var prior = historyOf(session);
     session.messages.push({ role: "user", content: text });
     if (session.title === "New chat") session.title = text.slice(0, 42);
     session.messages.push({ role: "assistant", content: "Thinking…", pending: true });
-    input.value = "";
+    if (!fromAgent) input.value = "";
     sendBtn.disabled = true;
     save();
     renderSessions();
@@ -877,29 +948,62 @@
     var thinking = [];
     var model = "";
     var errored = null;
+    var result = null;
 
     try {
       var local = await answerFromBrowser(text);
       if (local && typeof local.content === "string" && local.content.trim()) {
-        replacePending(session, {
+        var localMsg = {
           role: "assistant",
           content: local.content.trim(),
           model: typeof local.model === "string" ? local.model : "browser",
           source: typeof local.source === "string" ? local.source : "direct",
           evidence: Array.isArray(local.evidence) ? local.evidence : [],
           trace: [{
-            label: "browser",
+            label: fromAgent ? "webmcp-agent" : "browser",
             ok: true,
-            steps: [{ ok: true, detail: "Answered in the page. Hosted brains were not called." }],
+            steps: [{
+              ok: true,
+              detail: fromAgent
+                ? "Thin WebMCP agent answered in the page. Hosted brains were not called."
+                : "Answered in the page. Hosted brains were not called.",
+            }],
           }],
           thinking: [],
-        });
-        return;
+        };
+        replacePending(session, localMsg);
+        result = {
+          ok: true,
+          error: false,
+          content: localMsg.content,
+          model: localMsg.model,
+          source: localMsg.source,
+          evidence: localMsg.evidence,
+          via: "browser",
+        };
+        return result;
       }
 
+      var brainMessage = sanitizeBrainMessage(text);
+      var brainHistory = sanitizeBrainHistory(prior);
+      if (!brainMessage) {
+        throw new Error("After removing links and noise, nothing was left to send to the brain.");
+      }
+      if (brainMessage !== text || brainHistory.length !== prior.length) {
+        trace.push({
+          label: "webmcp-sanitize",
+          ok: true,
+          steps: [{
+            ok: true,
+            detail: "Removed weblinks and unnecessary data before the hosted brain call"
+              + (brainMessage.length !== text.length ? " (message " + text.length + "→" + brainMessage.length + " chars)" : "")
+              + ".",
+          }],
+        });
+      }
       await ensureBrain();
       await streamChat(
-        { message: text, history: prior, thinking_level: "medium" },
+        { message: brainMessage, history: brainHistory, thinking_level: "medium" },
         function (event) {
           if (event.type === "plan" && typeof event.text === "string") {
             trace.push({
@@ -964,18 +1068,71 @@
         trace: trace,
         thinking: thinking,
       });
+      result = {
+        ok: true,
+        error: false,
+        content: reply,
+        model: model || "go-brain",
+        source: source || "direct",
+        evidence: evidence,
+        via: "brain",
+      };
+      return result;
     } catch (err) {
+      var fail = failureText(err);
       replacePending(session, {
         role: "assistant",
-        content: failureText(err),
+        content: fail,
         error: true,
       });
+      result = {
+        ok: false,
+        error: true,
+        content: fail,
+        model: "",
+        source: "none",
+        evidence: [],
+        via: "error",
+      };
+      return result;
     } finally {
       sendBtn.disabled = false;
       save();
       renderSessions();
       renderLog();
-      input.focus();
+      if (!fromAgent) input.focus();
     }
+  }
+
+  window.BPMAIChat = {
+    sendText: sendText,
+    getLastReply: function () {
+      var message = lastAssistant(active());
+      if (!message) return { ok: false, content: "", detail: "No assistant reply yet." };
+      return {
+        ok: true,
+        content: typeof message.content === "string" ? message.content : "",
+        model: typeof message.model === "string" ? message.model : "",
+        source: typeof message.source === "string" ? message.source : "",
+        error: !!message.error,
+      };
+    },
+    clearSession: clearActiveSession,
+    newChat: startNewChat,
+    getStatus: function () {
+      var session = active();
+      return {
+        apiBase: apiBase || "",
+        sessionId: session ? session.id : "",
+        title: session ? session.title : "",
+        messageCount: session && Array.isArray(session.messages) ? session.messages.length : 0,
+        busy: !!sendBtn.disabled,
+        webmcp: !!(window.BPMAIClientTools && window.BPMAIClientTools.webmcpReady && window.BPMAIClientTools.webmcpReady()),
+      };
+    },
+  };
+
+  if (window.BPMAIClientTools && typeof window.BPMAIClientTools.registerWebMCP === "function") {
+    window.BPMAIClientTools.registerWebMCP();
   }
 })();

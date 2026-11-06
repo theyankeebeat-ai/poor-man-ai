@@ -477,67 +477,307 @@
     return Promise.resolve(null);
   }
 
-  function registerWebMCP() {
-    var mc =
-      (typeof document !== "undefined" && document.modelContext) ||
-      (typeof navigator !== "undefined" && navigator.modelContext) ||
-      null;
-    if (!mc || typeof mc.registerTool !== "function") return false;
+  // Strip weblinks and agent chrome before any hosted-brain call.
+  var BRAIN_TEXT_MAX = 8000;
+  var NOISE_LINE_RE = /^\s*(?:cookies?(?:\s+policy)?|privacy(?:\s+policy)?|terms(?:\s+of\s+(?:use|service))?|subscribe|sign[\s-]?in|log[\s-]?in|advertisement|accept\s+all(?:\s+cookies?)?|manage\s+preferences|share\s+this|follow\s+us|all\s+rights\s+reserved)\b.*$/i;
 
-    var tools = [
-      {
-        name: "browser_math",
-        description: "Evaluate a safe arithmetic expression in the browser. No backend call.",
-        inputSchema: {
-          type: "object",
-          properties: { expression: { type: "string" } },
-          required: ["expression"],
-        },
-        execute: async function (input) {
-          var result = tryMath(String((input && input.expression) || ""));
-          return result ? result.content : "That expression could not be evaluated safely.";
-        },
-      },
-      {
-        name: "browser_weather",
-        description: "Current weather via Open-Meteo from the visitor browser. No Poor Man AI backend call.",
-        inputSchema: {
-          type: "object",
-          properties: { place: { type: "string" } },
-          required: ["place"],
-        },
-        execute: async function (input) {
-          var place = String((input && input.place) || "").trim();
-          var result = await weatherReport("weather in " + place);
-          return result.content;
-        },
-      },
-      {
-        name: "browser_local_time",
-        description: "Local civil time for a city via Open-Meteo timezone, run in the browser.",
-        inputSchema: {
-          type: "object",
-          properties: { place: { type: "string" } },
-          required: ["place"],
-        },
-        execute: async function (input) {
-          var place = String((input && input.place) || "").trim();
-          var result = await timeReport(place ? "what time is it in " + place : "what time is it");
-          return result.content;
-        },
-      },
-    ];
-
-    tools.forEach(function (tool) {
-      try {
-        var maybe = mc.registerTool(tool);
-        if (maybe && typeof maybe.catch === "function") {
-          maybe.catch(function () { /* ignore unsupported shape */ });
-        }
-      } catch (_err) {
-        /* WebMCP shape varies by browser build */
-      }
+  function sanitizeForBrain(text, maxLen) {
+    var limit = typeof maxLen === "number" && maxLen > 0 ? maxLen : BRAIN_TEXT_MAX;
+    var s = String(text || "");
+    s = s.replace(/\u0000/g, "");
+    s = s.replace(/[\u200B-\u200D\uFEFF]/g, "");
+    s = s.replace(/data:[^\s]+/gi, " ");
+    s = s.replace(/!\[([^\]]*)\]\((https?:\/\/[^)]+|data:[^)]+)\)/gi, "$1");
+    s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/gi, "$1");
+    s = s.replace(/https?:\/\/[^\s<>"'`)\]]+/gi, " ");
+    s = s.replace(/\bwww\.[^\s<>"'`)\]]+/gi, " ");
+    s = s.replace(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi, " ");
+    s = s.replace(/<script[\s\S]*?<\/script>/gi, " ");
+    s = s.replace(/<style[\s\S]*?<\/style>/gi, " ");
+    s = s.replace(/<[^>]+>/g, " ");
+    s = s.replace(/&nbsp;|&amp;|&lt;|&gt;|&quot;|&#39;/gi, function (m) {
+      if (m === "&nbsp;") return " ";
+      if (m === "&amp;") return "&";
+      if (m === "&lt;") return "<";
+      if (m === "&gt;") return ">";
+      return "'";
     });
+    s = s.split(/\r\n|\n|\r/).map(function (line) {
+      var trimmed = line.trim();
+      if (!trimmed) return "";
+      if (NOISE_LINE_RE.test(trimmed)) return "";
+      return trimmed;
+    }).join("\n");
+    s = s.replace(/[ \t\f\v]+/g, " ");
+    s = s.replace(/\n{3,}/g, "\n\n");
+    s = s.replace(/[.]{4,}/g, "...");
+    s = s.trim();
+    if (s.length > limit) {
+      s = s.slice(0, limit).replace(/\s+\S*$/, "").trim() + "…";
+    }
+    return s;
+  }
+
+  function sanitizeHistoryForBrain(history) {
+    var rows = Array.isArray(history) ? history : [];
+    var out = [];
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      if (!row || typeof row !== "object") continue;
+      var role = row.role === "assistant" ? "assistant" : "user";
+      var raw = typeof row.text === "string" ? row.text : (typeof row.content === "string" ? row.content : "");
+      var cleaned = sanitizeForBrain(raw, 2000);
+      if (!cleaned) continue;
+      out.push({ role: role, text: cleaned });
+    }
+    return out;
+  }
+
+  function chatApi() {
+    return typeof global !== "undefined" && global.BPMAIChat ? global.BPMAIChat : null;
+  }
+
+  function modelContext() {
+    if (typeof document !== "undefined" && document.modelContext) return document.modelContext;
+    if (typeof navigator !== "undefined" && navigator.modelContext) return navigator.modelContext;
+    return null;
+  }
+
+  var webmcpRegistered = false;
+  var registeredNames = {};
+
+  function stringifyToolResult(value) {
+    if (typeof value === "string") return value;
+    try {
+      return JSON.stringify(value);
+    } catch (_err) {
+      return String(value);
+    }
+  }
+
+  // Thin in-page agent: cheap browser tools first, then the chat/brain path.
+  function runAgent(message) {
+    var text = String(message || "").trim();
+    if (!text) {
+      return Promise.resolve({
+        ok: false,
+        error: true,
+        content: "Empty message.",
+        via: "agent",
+        model: "webmcp-agent",
+        source: "none",
+        evidence: [],
+      });
+    }
+    return answerLocally(text).then(function (local) {
+      if (local && typeof local.content === "string" && local.content.trim()) {
+        return {
+          ok: true,
+          error: false,
+          content: local.content.trim(),
+          model: typeof local.model === "string" ? local.model : "browser",
+          source: typeof local.source === "string" ? local.source : "direct",
+          evidence: Array.isArray(local.evidence) ? local.evidence : [],
+          via: "browser",
+        };
+      }
+      var chat = chatApi();
+      if (!chat || typeof chat.sendText !== "function") {
+        return {
+          ok: false,
+          error: true,
+          content: "Chat UI is not ready for research yet.",
+          via: "agent",
+          model: "webmcp-agent",
+          source: "none",
+          evidence: [],
+        };
+      }
+      return chat.sendText(text, { fromAgent: true }).then(function (out) {
+        if (!out || typeof out !== "object") {
+          return {
+            ok: false,
+            error: true,
+            content: "Chat returned no result.",
+            via: "agent",
+            model: "webmcp-agent",
+            source: "none",
+            evidence: [],
+          };
+        }
+        return {
+          ok: out.ok !== false && !out.error,
+          error: !!out.error,
+          content: typeof out.content === "string" ? out.content : "",
+          model: typeof out.model === "string" ? out.model : "go-brain",
+          source: typeof out.source === "string" ? out.source : "direct",
+          evidence: Array.isArray(out.evidence) ? out.evidence : [],
+          via: typeof out.via === "string" ? out.via : "brain",
+        };
+      });
+    });
+  }
+
+  function registerOne(mc, tool) {
+    if (!tool || !tool.name || registeredNames[tool.name]) return;
+    registeredNames[tool.name] = true;
+    try {
+      var maybe = mc.registerTool(tool);
+      if (maybe && typeof maybe.catch === "function") {
+        maybe.catch(function () {
+          registeredNames[tool.name] = false;
+        });
+      }
+    } catch (_err) {
+      registeredNames[tool.name] = false;
+    }
+  }
+
+  function registerWebMCP() {
+    var mc = modelContext();
+    if (!mc || typeof mc.registerTool !== "function") {
+      webmcpRegistered = false;
+      return false;
+    }
+
+    registerOne(mc, {
+      name: "browser_math",
+      description: "Evaluate a safe arithmetic expression in the visitor browser. Prefer this over send_chat for pure math. No backend call.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          expression: { type: "string", description: "Arithmetic expression such as 2+2 or 12/4" },
+        },
+        required: ["expression"],
+      },
+      execute: async function (input) {
+        var result = tryMath(String((input && input.expression) || ""));
+        return result ? result.content : "That expression could not be evaluated safely.";
+      },
+    });
+
+    registerOne(mc, {
+      name: "browser_weather",
+      description: "Current weather for a place via Open-Meteo in the visitor browser. Prefer this over send_chat for weather. No Poor Man AI backend call.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          place: { type: "string", description: "City or place name, optionally with country" },
+        },
+        required: ["place"],
+      },
+      execute: async function (input) {
+        var place = String((input && input.place) || "").trim();
+        var result = await weatherReport("weather in " + place);
+        return result.content;
+      },
+    });
+
+    registerOne(mc, {
+      name: "browser_local_time",
+      description: "Local civil time for a city via Open-Meteo timezone in the visitor browser. Prefer this over send_chat for clock questions.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          place: { type: "string", description: "City name. Omit for UTC." },
+        },
+      },
+      execute: async function (input) {
+        var place = String((input && input.place) || "").trim();
+        var result = await timeReport(place ? "what time is it in " + place : "what time is it");
+        return result.content;
+      },
+    });
+
+    registerOne(mc, {
+      name: "agent_ask",
+      description: "Smart in-page agent for Poor Man AI. Uses browser math/weather/time first. Falls back to send_chat / hosted brain for research. Before any brain call, weblinks and agent noise are stripped. Preferred single entry for natural-language agents.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          message: { type: "string", description: "Natural language question or instruction" },
+        },
+        required: ["message"],
+      },
+      execute: async function (input) {
+        var out = await runAgent(String((input && input.message) || ""));
+        return stringifyToolResult(out);
+      },
+    });
+
+    registerOne(mc, {
+      name: "send_chat",
+      description: "Send a message through the Poor Man AI chat UI. Uses browser offload when possible, otherwise posts to a hosted Go brain after stripping weblinks and unnecessary agent scrape data. Use for research, memory, and multi-step questions.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          message: { type: "string", description: "User message to send in the active chat" },
+        },
+        required: ["message"],
+      },
+      execute: async function (input) {
+        var chat = chatApi();
+        if (!chat || typeof chat.sendText !== "function") {
+          return stringifyToolResult({ ok: false, error: true, content: "Chat UI is not ready." });
+        }
+        var out = await chat.sendText(String((input && input.message) || ""), { fromAgent: true });
+        return stringifyToolResult(out);
+      },
+    });
+
+    registerOne(mc, {
+      name: "get_last_reply",
+      description: "Return the latest assistant reply in the active chat session.",
+      inputSchema: { type: "object", properties: {} },
+      execute: async function () {
+        var chat = chatApi();
+        if (!chat || typeof chat.getLastReply !== "function") {
+          return stringifyToolResult({ ok: false, content: "", detail: "Chat UI is not ready." });
+        }
+        return stringifyToolResult(chat.getLastReply());
+      },
+    });
+
+    registerOne(mc, {
+      name: "clear_session",
+      description: "Clear messages in the active Poor Man AI chat session.",
+      inputSchema: { type: "object", properties: {} },
+      execute: async function () {
+        var chat = chatApi();
+        if (!chat || typeof chat.clearSession !== "function") {
+          return stringifyToolResult({ ok: false, detail: "Chat UI is not ready." });
+        }
+        return stringifyToolResult(chat.clearSession());
+      },
+    });
+
+    registerOne(mc, {
+      name: "new_chat",
+      description: "Start or switch to an empty Poor Man AI chat session.",
+      inputSchema: { type: "object", properties: {} },
+      execute: async function () {
+        var chat = chatApi();
+        if (!chat || typeof chat.newChat !== "function") {
+          return stringifyToolResult({ ok: false, detail: "Chat UI is not ready." });
+        }
+        return stringifyToolResult(chat.newChat());
+      },
+    });
+
+    registerOne(mc, {
+      name: "chat_status",
+      description: "Return active session id, title, message count, busy flag, apiBase, and whether WebMCP registered.",
+      inputSchema: { type: "object", properties: {} },
+      execute: async function () {
+        var chat = chatApi();
+        if (!chat || typeof chat.getStatus !== "function") {
+          return stringifyToolResult({ ok: false, detail: "Chat UI is not ready." });
+        }
+        return stringifyToolResult(chat.getStatus());
+      },
+    });
+
+    webmcpRegistered = true;
     return true;
   }
 
@@ -548,7 +788,24 @@
     weatherReport: weatherReport,
     timeReport: timeReport,
     answerLocally: answerLocally,
+    sanitizeForBrain: sanitizeForBrain,
+    sanitizeHistoryForBrain: sanitizeHistoryForBrain,
+    runAgent: runAgent,
     registerWebMCP: registerWebMCP,
+    webmcpReady: function () { return webmcpRegistered && !!modelContext(); },
+    listAgentTools: function () {
+      return [
+        "browser_math",
+        "browser_weather",
+        "browser_local_time",
+        "agent_ask",
+        "send_chat",
+        "get_last_reply",
+        "clear_session",
+        "new_chat",
+        "chat_status",
+      ];
+    },
   };
 
   global.BPMAIClientTools = api;

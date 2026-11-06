@@ -3,18 +3,19 @@
   "private": true,
   "version": "2.0.0",
   "scripts": {
-    "dev": "npm run dev --prefix apps/brain",
-    "dev:brain": "npm run dev --prefix apps/brain",
-    "prepare:data": "npm run prepare --prefix apps/brain",
+    "dev": "yarn --cwd apps/brain dev",
+    "dev:brain": "yarn --cwd apps/brain dev",
+    "prepare:data": "yarn --cwd apps/brain prepare",
     "build": "node scripts/build-hosting.mjs",
     "build:hosting": "node scripts/build-hosting.mjs",
     "typecheck": "node scripts/typecheck.mjs",
     "lint": "node scripts/lint.mjs",
-    "test": "npm test --prefix apps/brain",
+    "test": "yarn --cwd apps/brain test",
     "deploy:hosting": "node scripts/build-hosting.mjs && firebase deploy --only hosting --project zerogravity-ab52d --non-interactive"
   },
+  "packageManager": "yarn@1.22.22",
   "devDependencies": {
-    "eslint": "^9.16.0"
+    "eslint": "^10.14.0"
   },
   "type": "module"
 }

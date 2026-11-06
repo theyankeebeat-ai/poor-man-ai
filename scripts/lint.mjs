@@ -28,7 +28,7 @@ if (fs.existsSync(eslintBin)) {
   process.stderr.write(es.stderr || "");
   if (es.status !== 0) process.exit(es.status || 1);
 } else {
-  console.log("eslint not installed yet; skipped JS lint (npm install first)");
+  console.log("eslint not installed yet; skipped JS lint (yarn first)");
 }
 
 const go = spawnSync("go", ["fmt", "./..."], { cwd: brain, encoding: "utf8", shell: true });
