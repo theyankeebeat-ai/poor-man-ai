@@ -1,229 +1,250 @@
-# WebMCP and the client / brain split
+# WebMCP and the five-role split
 
-This document describes the structure change that moves cheap work into the Firebase-hosted page and keeps the ~500MB Go backends focused on research.
+Cheap work runs in the Firebase page (and WebMCP agents). The ~500MB hosts no longer run AI-mode search engines. Each host has one job.
+
+**Current ship commit for this layout:** `0e19f51` (role split + search disabled).
 
 ## Why
 
-Math, weather, and local time used to wake Vercel, Render, and the proxy chain on every turn. Those answers do not need potion-base-8M or the SQuAD index. Running them in the browser cuts backend wakeups and lets the Go brain cold-start faster.
+Math, weather, and local time do not need potion-base-8M or the SQuAD index. Running them in the browser cuts backend wakeups.
 
-WebMCP is the agent-facing layer on top of the same client tools. It does not replace the Go brain.
+Live AI-mode search (Duck.ai, Google AI Mode, Brave Ask, Bing, Yandex, Google News RSS) flooded the 500MB brains with scrape panels and produced hallucinations. Those engines are **disabled**. Research uses **local RAG only**.
 
-## Layers
+WebMCP is the agent-facing layer on top of the same client tools. It does not replace the Go brains.
 
-| Layer | Role | Host |
-| --- | --- | --- |
-| Static chat UI | Sessions, streaming UI, theme | Firebase Hosting (`web/out`) |
-| Client tools + WebMCP | Math, weather, local time; sanitize before brain | Same Firebase bundle (`web/client-tools.js`) |
-| Chat API gateway | Prefer this for `/chat` + `/health`; routes to brains | Supabase `api` |
-| Lean brain A | Local RAG + memory + greetings (no AI-mode search) | Vercel `poor-man-ai` |
-| Lean brain B | Second copy of the same Go brain | Render `poor-man-ai` |
-| Compute | Sanitize + math only (not a brain proxy) | Appwrite `score` |
+## Five roles
 
-Live AI-mode search engines (Duck.ai, Google AI Mode, Brave Ask, Bing, Yandex, Google News RSS) are **disabled** on every 500MB host. They were removed because scrape panels overloaded RAM and produced hallucinations.
+| # | Role | Host | Job |
+| --- | --- | --- | --- |
+| 1 | UI + WebMCP | Firebase Hosting `zerogravity-ab52d` | Static chat, client tools, WebMCP registration |
+| 2 | Chat API | Supabase function `api` | Gateway for `/chat` and `/health` → brains |
+| 3 | Brain A | Vercel `poor-man-ai` | Lean Go brain: RAG + memory + greetings |
+| 4 | Brain B | Render `poor-man-ai` | Second lean Go brain (same binary) |
+| 5 | Compute | Appwrite function `score` | `/sanitize`, `/math`, `/compute` only |
+
+Live URLs:
+
+| Role | URL |
+| --- | --- |
+| UI | https://ai.usavisible.com · https://zerogravity-ab52d.web.app |
+| Chat API | https://wqrriztbsifgytjzippi.supabase.co/functions/v1/api |
+| Brain A | https://poor-man-ai.vercel.app |
+| Brain B | https://poor-man-ai.onrender.com |
+| Compute | https://poor-man-ai.fra.appwrite.run |
 
 ## Request path
 
 ```
-User message
+User or WebMCP agent message
     │
     ▼
 web/app.js  →  BPMAIClientTools.answerLocally(message)
     │
     ├─ math / weather / time hit
     │     → answer in the browser
-    │     → no ensureBrain, no /chat, no hosted wake
+    │     → no ensureBrain, no /chat
     │
     └─ everything else
-          → ensureBrain()
-          → POST {message, history, thinking_level} to a hosted brain /chat
+          → sanitizeForBrain(message + history)   # strip links / noise
+          → ensureBrain()                         # prefers Supabase chat API
+          → POST /chat {message, history, thinking_level}
+                Supabase chat-api
+                    → Vercel brain A
+                    → else Render brain B
           → NDJSON plan / tool / observation / token / done
+                tools: rag_search, memory_*, weather/time fallbacks
+                (no web_search engines)
 ```
+
+Chat upstream order in `web/app.js` (`HOSTED_BRAINS`):
+
+1. Supabase chat API  
+2. Vercel brain A  
+3. Render brain B  
+
+Appwrite is **not** a chat upstream.
 
 ## Client tools (`web/client-tools.js`)
 
-Exposed as `window.BPMAIClientTools`:
+`window.BPMAIClientTools`:
 
-- `tryMath(message)` — safe arithmetic (same shape as Go `tryMath`)
-- `weatherReport(message)` — Open-Meteo geocode + current conditions
-- `timeReport(message)` — Open-Meteo timezone + civil clock
-- `answerLocally(message)` — returns a reply object or `null`
-- `runAgent(message)` — thin in-page agent: local tools first, then `BPMAIChat.sendText`
-- `registerWebMCP()` — best-effort tool registration for browser / DevTools agents
-- `listAgentTools()` — names registered for WebMCP consumers
+| API | Purpose |
+| --- | --- |
+| `tryMath` / `weatherReport` / `timeReport` | Cheap browser answers |
+| `answerLocally` | Returns a reply object or `null` |
+| `sanitizeForBrain` / `sanitizeHistoryForBrain` | Clean payload before `/chat` |
+| `runAgent` | Thin agent: local tools first, then `BPMAIChat.sendText` |
+| `registerWebMCP` | Best-effort `document.modelContext` registration |
+| `listAgentTools` | Names exposed to agents |
+| `webmcpReady` | Whether registration succeeded |
 
-Chat hooks from `web/app.js` as `window.BPMAIChat`:
+`window.BPMAIChat` (from `web/app.js`):
 
-- `sendText(message, { fromAgent })`
-- `getLastReply()`
-- `clearSession()` / `newChat()`
-- `getStatus()`
+| API | Purpose |
+| --- | --- |
+| `sendText(message, { fromAgent })` | Full chat turn (offload → sanitize → brain) |
+| `getLastReply` | Latest assistant bubble |
+| `clearSession` / `newChat` | Session control |
+| `getStatus` | `apiBase`, `computeApi`, busy, `search: "disabled"` |
 
-Reply objects look like:
+### WebMCP tools
 
-```js
-{
-  content: "2+2 = **4**.",
-  source: "direct",          // or weather_compare / local_time
-  model: "browser-math",     // or browser-open-meteo
-  evidence: [{ title, url }] // optional
-}
-```
-
-`web/app.js` calls `answerLocally` first inside `sendText()`. On a hit it writes the assistant bubble with a turn-trace note that hosted brains were not called.
-
-### WebMCP registration (smart agents)
-
-Feature-detect and prefer the current entry point:
-
-```js
-const mc = document.modelContext ?? navigator.modelContext;
-```
-
-Registered tools (when the browser supports WebMCP):
+Prefer `document.modelContext` (fall back to `navigator.modelContext`).
 
 | Tool | Purpose |
 | --- | --- |
-| `agent_ask` | Preferred natural-language entry. Browser tools first, then chat/brain. |
-| `browser_math` | Evaluate a safe expression in the page |
-| `browser_weather` | Open-Meteo weather from the visitor browser |
-| `browser_local_time` | Local civil time via Open-Meteo timezone |
-| `send_chat` | Drive the chat UI (offload or hosted `/chat`) |
-| `get_last_reply` | Read the latest assistant bubble |
+| `agent_ask` | Preferred natural-language entry |
+| `browser_math` | Safe arithmetic in the page |
+| `browser_weather` | Open-Meteo from the visitor browser |
+| `browser_local_time` | Civil clock via Open-Meteo timezone |
+| `send_chat` | Drive chat UI (offload or hosted `/chat`) |
+| `get_last_reply` | Read last assistant reply |
 | `clear_session` / `new_chat` | Session control |
-| `chat_status` | Session id, busy flag, apiBase, WebMCP readiness |
+| `chat_status` | Session + API status |
 
-External agents (Chrome DevTools MCP with `--category-experimental-webmcp`, Playwright `page.webmcp`, Kitesurf) should prefer **`agent_ask`**. Direct tool calls stay available for precise control.
+External agents (Chrome DevTools MCP with `--category-experimental-webmcp`, Playwright `page.webmcp`, Kitesurf) should prefer **`agent_ask`**.
+
+WebMCP is experimental. Ordinary chat does not depend on it. Browser offload still runs for every visitor.
 
 ### Sanitize before the brain
 
-`BPMAIClientTools.sanitizeForBrain` / `sanitizeHistoryForBrain` run on every hosted `/chat` payload (UI, `send_chat`, and `agent_ask` fallback):
+On every hosted `/chat` payload:
 
-- Strip `http(s)` / `www` URLs, markdown links (keep label text), `data:` URIs, emails
-- Strip HTML/script/style tags and common cookie/privacy/subscribe chrome lines
-- Collapse whitespace and cap message length (~8000 chars; history turns ~2000 each)
+- Strip `http(s)` / `www` URLs, markdown links (keep label text), `data:` URIs, emails  
+- Strip HTML/script/style and cookie/privacy/subscribe chrome lines  
+- Cap length (~8000 chars message; ~2000 per history turn)  
 
-The chat bubble still shows the user’s original text. Only the brain request is cleaned. A turn-trace step `webmcp-sanitize` appears when content changed.
+The bubble shows the original text. Only the brain request is cleaned. Turn trace may show `webmcp-sanitize`.
 
-WebMCP is experimental (Chrome origin trial / flags). Ordinary chat does not depend on it. The offload path and thin agent run for every visitor.
+Appwrite compute exposes the same sanitize idea at `POST /sanitize` for agents that call compute directly.
 
-Deploy WebMCP with normal hosting. No Cloud Functions and no Blaze plan are required for tool registration.
+## Role details
 
-```powershell
-npm run deploy:hosting
-```
+### 1. Firebase UI + WebMCP
 
-That builds `web/out` (including `client-tools.js`) and deploys Firebase site `zerogravity-ab52d` (`ai.usavisible.com`).
+- Public: `web/out` via `scripts/build-hosting.mjs`  
+- Files: `index.html`, `app.js`, `styles.css`, `client-tools.js`  
+- Deploy: `yarn build` then `npm run deploy:hosting` (or `yarn` equivalent)
 
-## Lean Go brain (after offload)
+### 2. Supabase chat API (`supabase/functions/api`)
 
-Commit `f9ed477` changed startup so the research index does not block listen:
+- `role: "chat-api"`, `search: "disabled"`  
+- `GET /health` — probes Vercel then Render; returns brain status list  
+- `GET /role` — self-description  
+- Other paths — proxy to first healthy brain; sets `x-bpmai-brain` / `x-bpmai-role`  
+- Deploy: `supabase functions deploy api --project-ref wqrriztbsifgytjzippi`
 
-1. `main` starts HTTP immediately.
-2. `go warmBrainData()` loads corpus + embeddings in the background.
-3. `ensureBrainData()` (`sync.Once`) loads on first research / RAG use.
-4. `GET /health` returns `"warm": true|false` and can peek meta files while cold.
+### 3–4. Lean Go brains (Vercel + Render)
 
-Cheap server paths (greetings, memory, math/weather API fallbacks) do not need the index. Research still uses BM25 + potion-base-8M cosine, then AI-mode search.
+- `role: "brain"`, `search: "disabled"`  
+- Background warm: listen first, load corpus/embeddings in a goroutine  
+- Research: local BM25 + potion-base-8M RAG only  
+- Also: memory, greetings, weather/time/math **fallbacks** for non-browser clients  
+- `/health` includes `warm`, `model`, `passages`  
+- Deploy Vercel: `vercel deploy --prod --yes --project poor-man-ai --scope simpleai1`  
+- Deploy Render: `render deploys create srv-dajg6eh594qs73c38mj0 --commit <sha> --confirm`  
+- GitHub Actions also deploys Vercel on push to `master` (windows-latest workflow)
 
-### What stays on the server
+### 5. Appwrite compute (`functions/score`)
 
-- Hybrid RAG over SQuAD passages
-- AI-mode web search and Google News RSS
-- Memory read/write
-- Knowledge packs under `apps/brain/mcp/`
-- Weather / math / time only as fallbacks for non-browser `/chat` clients
+- `role: "compute"`, `search: "disabled"`  
+- Endpoints: `GET /health`, `POST /sanitize`, `POST /math`, `POST /compute`  
+- Does **not** proxy `/chat` to brains  
+- Deploy: `appwrite functions create-deployment --function-id score --code functions/score --entrypoint main.py --activate`
 
-### What left the critical path for page chat
+## Lean brain cold start
 
-- Arithmetic
-- Open-Meteo weather
-- Local time by city
+1. `main` starts HTTP immediately.  
+2. `go warmBrainData()` loads corpus + embeddings in the background.  
+3. `ensureBrainData()` (`sync.Once`) loads on first RAG use.  
+4. Cold `/health` can peek meta files and return `warm: false`.
+
+## What each side owns
+
+| In the browser / WebMCP | On the lean brains | On Appwrite compute |
+| --- | --- | --- |
+| Math, weather, local time | Hybrid RAG (SQuAD index) | Sanitize text |
+| Session tools | Memory read/write | Safe math |
+| Sanitize before `/chat` | Knowledge packs (`apps/brain/mcp`) | |
+| Thin `agent_ask` | Greetings / chat fallbacks | |
+
+| Removed from all 500MB hosts |
+| --- |
+| Duck.ai, Google AI Mode, Brave Ask, Bing, Yandex |
+| Google News RSS as a live search feed |
+| Appwrite/Supabase as brain-style search scrapers |
 
 ## Files
 
-| Path | Change |
+| Path | Role |
 | --- | --- |
-| `web/client-tools.js` | Client math / weather / time + WebMCP register |
-| `web/app.js` | `answerFromBrowser` before hosted `/chat` |
+| `web/client-tools.js` | Offload, sanitize, WebMCP, `runAgent` |
+| `web/app.js` | `sendText`, `BPMAIChat`, Supabase-first upstreams |
 | `web/index.html` | Loads `client-tools.js` before `app.js` |
-| `scripts/build-hosting.mjs` | Copies `client-tools.js` into `web/out` |
-| `apps/brain/main.go` | Background warm; `/health` `warm` flag |
-| `apps/brain/embed.go` | `ensureEmbeddings`, `peekEmbedMeta`, `brainWarm` |
-| `apps/brain/retrieve.go` | `ensureCorpus`, `peekCorpusMeta` |
-| `apps/brain/turn.go` | `ensureBrainData` before local RAG |
-| `apps/brain/rag.go` | `ensureBrainData` on RAG list/index/search |
-| `apps/brain/warm_test.go` | Peek + ensure tests |
-
-## Hosting map
-
-| URL | Piece |
-| --- | --- |
-| https://ai.usavisible.com | Firebase static UI + client tools |
-| https://poor-man-ai.vercel.app | Go brain (preferred) |
-| https://poor-man-ai.onrender.com | Go brain |
-| Supabase `…/functions/v1/api` | Proxy → Vercel → Render |
-| Appwrite `poor-man-ai.fra.appwrite.run` | Proxy → Vercel → Render |
+| `scripts/build-hosting.mjs` | Copies client bundle into `web/out` |
+| `supabase/functions/api/index.ts` | Chat API gateway |
+| `functions/score/main.py` | Appwrite compute |
+| `apps/brain/turn.go` | RAG-only research path |
+| `apps/brain/search.go` | `webSearch` returns empty (engines off) |
+| `apps/brain/main.go` | `/health` role/brain + search disabled |
+| `apps/brain/embed.go` / `retrieve.go` | Lazy warm / ensure |
+| `.github/workflows/vercel-production.yml` | Vercel deploy on `master` |
 
 ## Checks
 
 Browser offload (no `/chat`):
 
-- `what is 2+2?` → `browser-math`
-- `what is the weather in Belgrade Serbia?` → `browser-open-meteo`
+- `what is 2+2?` → `browser-math`  
+- `what is the weather in Belgrade Serbia?` → `browser-open-meteo`  
 - `what time is it in London?` → `browser-open-meteo`
 
-Brain still used:
+Brain via chat API (RAG / memory):
 
-- Research / definitions / news
-- Memory (`remember …`)
-- Multi-part questions that need search
+- Definitions and multi-part questions answered from local corpus when possible  
+- `remember …` memory writes  
+- No live web-search panels in the turn trace  
 
-Health:
+Health shapes:
 
 ```text
-GET /health → status=ok, warm=true|false, model=minishlab/potion-base-8M
+GET Supabase …/api/health  → status=ok, role=chat-api, search=disabled, brains=[…]
+GET Vercel|Render /health  → status=ok, role=brain, search=disabled, warm=true|false
+GET Appwrite /health       → status=ok, role=compute, search=disabled
 ```
+
+## Deploy all five
+
+```powershell
+yarn build
+npm run deploy:hosting
+vercel deploy --prod --yes --project poor-man-ai --scope simpleai1
+supabase functions deploy api --project-ref wqrriztbsifgytjzippi
+appwrite functions create-deployment --function-id score --code functions/score --entrypoint main.py --activate
+render deploys create srv-dajg6eh594qs73c38mj0 --commit <sha> --confirm
+```
+
+Pushing `master` also triggers the Vercel GitHub Actions workflow when `VERCEL_TOKEN` is set.
 
 ## Not the same as Firebase MCP
 
 | Name | What it is |
 | --- | --- |
 | **WebMCP** (this doc) | In-page tools for browser agents; ships with Firebase Hosting |
-| **Firebase MCP server** | Local IDE/CLI helper (`firebase-tools mcp`) for project management; not deployed to Hosting |
-| **`apps/brain/mcp/*.md`** | Knowledge / skill packs embedded in the Go brain |
+| **Firebase MCP server** | Local IDE/CLI helper (`firebase-tools mcp`); not deployed to Hosting |
+| **`apps/brain/mcp/*.md`** | Knowledge / skill packs inside the Go brain |
 
-## Design rule
+## Design rules
 
-Put work that only needs the visitor’s browser (and public HTTPS APIs such as Open-Meteo) in `web/client-tools.js`. Keep anything that needs the passage index, embeddings, or AI-mode search on the Go brain, and keep that brain warm in the background so `/health` stays fast on a cold Render or Vercel instance.
+1. Browser-cheap work stays in `web/client-tools.js`.  
+2. Chat goes through Supabase when possible; Vercel and Render are brains, not scrapers.  
+3. Appwrite computes; it does not answer research chat.  
+4. Never re-enable AI-mode search engines on these 500MB hosts without a larger memory budget.  
+5. Sanitize agent/web noise before every brain call.
 
-## Vercel Go toolchain
+## Vercel notes
 
-`apps/brain/Dockerfile` builds with `golang:1.25-alpine` and `GOTOOLCHAIN=auto`.
-
-`apps/brain/go.mod` on `master` must stay compatible with that image, or rely on `GOTOOLCHAIN=auto` to fetch a newer toolchain. A local dirty `go.mod` that pins `go 1.26.3` while the CLI uploads the working tree (without committing) will fail the container build if the toolchain cannot resolve. Prefer deploying a clean tree that matches `origin/master`, or commit `go.mod` / `go.sum` together with any Go version bump.
-
-## Vercel deploy (GitHub Actions)
-
-Native `vercel git connect` needs a GitHub **Login Connection** on the email-login Vercel account (`theyankeebeat-6449`). Until that works, production auto-deploy uses GitHub Actions:
-
-- Workflow: `.github/workflows/vercel-production.yml`
-- Runner: `windows-latest` (GitHub cloud Windows; your local PC is unchanged)
-- Trigger: push to `master` or manual `workflow_dispatch`
-- Command: `vercel deploy --prod --yes` (container build on Vercel; no `--prebuilt`)
-- Checkout: `actions/checkout@v5` (Node 24)
-
-Required GitHub Actions secrets on `theyankeebeat-ai/poor-man-ai`:
-
-| Secret | Value |
-| --- | --- |
-| `VERCEL_TOKEN` | Create at https://vercel.com/account/tokens |
-| `VERCEL_ORG_ID` | `team_tyatlW9pYNVovGHW7i9Vb6iQ` |
-| `VERCEL_PROJECT_ID` | `prj_Zw7jP6D8dAuJkLG1duFP4TGejrM3` |
-
-Manual fallback:
-
-```powershell
-vercel deploy --prod --yes --project poor-man-ai --scope simpleai1
-```
-
-Do not create a new Vercel project for this repo. Production alias stays `https://poor-man-ai.vercel.app`.
+- Dockerfile: `golang:1.25-alpine` + `GOTOOLCHAIN=auto`  
+- Keep `go.mod` clean for CLI uploads (dirty `go 1.26.x` broke a production build once)  
+- Native `vercel git connect` needs a GitHub Login Connection on account `theyankeebeat-6449`; until then use Actions or `vercel deploy --prod`  
+- Actions secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID=team_tyatlW9pYNVovGHW7i9Vb6iQ`, `VERCEL_PROJECT_ID=prj_Zw7jP6D8dAuJkLG1duFP4TGejrM3`  
+- Do not create a second Vercel project for this repo  
