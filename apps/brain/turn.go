@@ -125,53 +125,12 @@ func runTurn(message string, history []turn, mode string, thinking string, emit 
 		}
 		searchText := resolveFollow(part, history)
 		q := focusQuery(searchText)
-		var webText []string
-		var newsHeads []string
-		var titled string
-		aiBacked := false
-		newsish := newsRE.MatchString(part) || newsRE.MatchString(searchText)
-		if th.NeedsWeb && thinking != "off" {
-			found, misses := webSearch(searchText)
-			found = diversifyHits(part, rankHits(searchText, dedupeHits(found, 12)))
-			if len(found) > 8 {
-				found = found[:8]
-			}
-			if found == nil {
-				found = []webHit{}
-			}
-			toolCalls++
-			emit(event{Type: "tool", Name: "web_search", Args: map[string]any{"query": searchText}})
-			b, _ := json.Marshal(struct {
-				Misses []engineMiss `json:"misses,omitempty"`
-				Hits   []webHit     `json:"hits"`
-			}{Misses: misses, Hits: found})
-			emit(event{Type: "observation", Name: "web_search", Text: string(b)})
-			for _, hit := range found {
-				if isWikipediaURL(hit.URL) {
-					continue
-				}
-				sources = append(sources, source{Title: hit.Title, URL: hit.URL})
-				snippet := stripAnswerChrome(hit.Snippet, searchText)
-				if aiModeHit(hit) && snippet != "" {
-					aiBacked = true
-					if titled == "" && !newsish {
-						titled = snippet
-						snippet = ""
-					}
-				}
-				if snippet != "" {
-					webText = append(webText, snippet)
-				}
-				if newsish && strings.Contains(hit.URL, "news.google.com") && strings.TrimSpace(hit.Title) != "" {
-					newsHeads = append(newsHeads, strings.TrimRight(strings.TrimSpace(hit.Title), ".")+".")
-				}
-			}
-		}
+		// Live AI-mode search engines are disabled on 500MB hosts. Research uses local RAG only.
 		var localText []string
-		if !aiBacked {
+		if th.NeedsWeb {
 			ensureBrainData()
 		}
-		if !aiBacked && corpus != nil {
+		if th.NeedsWeb && corpus != nil {
 			hits := corpus.search(q, 4)
 			if len(hits) > 0 {
 				toolCalls++
@@ -191,18 +150,11 @@ func runTurn(message string, history []turn, mode string, thinking string, emit 
 				}
 				b, _ := json.Marshal(obs)
 				emit(event{Type: "observation", Name: "rag_search", Text: string(b)})
+			} else if thinking != "off" {
+				emit(event{Type: "observation", Name: "rag_search", Text: `{"hits":[],"note":"no local passage; live web search engines are disabled"}`})
 			}
 		}
-		chunks := make([]string, 0, len(localText)+len(webText)+2)
-		if len(newsHeads) > 0 {
-			chunks = append(chunks, strings.Join(newsHeads, " "))
-		}
-		if titled != "" {
-			chunks = append(chunks, titled)
-		}
-		chunks = append(chunks, localText...)
-		chunks = append(chunks, webText...)
-		blob := strings.Join(chunks, "\n")
+		blob := strings.Join(localText, "\n")
 		evidence += "\n## " + part + "\n" + clip(blob, 4000)
 		var lead, support string
 		if thinking != "off" {

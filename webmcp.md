@@ -13,9 +13,13 @@ WebMCP is the agent-facing layer on top of the same client tools. It does not re
 | Layer | Role | Host |
 | --- | --- | --- |
 | Static chat UI | Sessions, streaming UI, theme | Firebase Hosting (`web/out`) |
-| Client tools + WebMCP | Math, weather, local time in the page | Same Firebase bundle (`web/client-tools.js`) |
-| Go brain | Research, RAG, memory, greetings, API fallbacks | Vercel + Render |
-| Proxies | Forward `/chat` and `/health` | Supabase `api`, Appwrite `score` |
+| Client tools + WebMCP | Math, weather, local time; sanitize before brain | Same Firebase bundle (`web/client-tools.js`) |
+| Chat API gateway | Prefer this for `/chat` + `/health`; routes to brains | Supabase `api` |
+| Lean brain A | Local RAG + memory + greetings (no AI-mode search) | Vercel `poor-man-ai` |
+| Lean brain B | Second copy of the same Go brain | Render `poor-man-ai` |
+| Compute | Sanitize + math only (not a brain proxy) | Appwrite `score` |
+
+Live AI-mode search engines (Duck.ai, Google AI Mode, Brave Ask, Bing, Yandex, Google News RSS) are **disabled** on every 500MB host. They were removed because scrape panels overloaded RAM and produced hallucinations.
 
 ## Request path
 

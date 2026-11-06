@@ -133,14 +133,16 @@ func health(w http.ResponseWriter, r *http.Request) {
 	noteCache(warm)
 	writeJSON(w, 200, map[string]any{
 		"status": "ok",
+		"role":   "brain",
 		"warm":   warm,
+		"search": "disabled",
 		"cache": map[string]any{
 			"hits":     cacheHits.Load(),
 			"misses":   cacheMisses.Load(),
 			"hit_rate": hitRate(),
 		},
 		"memory_scrub": map[string]int{"kept": len(readFacts()), "dropped": 0},
-		"note":         "Better Poor Man AI Go brain. No Python. NDJSON /chat. Research index warms in the background.",
+		"note":         "Lean Go brain: local RAG + memory. AI-mode web search engines are disabled. Index warms in the background.",
 		"runtime":      "go",
 		"model":        model,
 		"parameters":   params,

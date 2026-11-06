@@ -1,21 +1,108 @@
-"""Appwrite proxy for the Go brain. The plan only allows the existing functions."""
+"""Appwrite compute service for Poor Man AI.
+
+Does lightweight math and text sanitization. Does not proxy the Go brain
+and does not run AI-mode search engines.
+"""
+
+from __future__ import annotations
 
 import json
-import os
-from urllib import request as urlrequest
-from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
-
-UPSTREAMS = [
-    os.environ.get("VERCEL_API", "https://poor-man-ai.vercel.app").rstrip("/"),
-    os.environ.get("RENDER_API", "https://poor-man-ai.onrender.com").rstrip("/"),
-]
+import re
+from typing import Any
 
 CORS = {
     "access-control-allow-origin": "*",
     "access-control-allow-headers": "content-type, accept",
     "access-control-allow-methods": "GET, POST, OPTIONS",
 }
+
+BRAIN_TEXT_MAX = 8000
+NOISE_LINE_RE = re.compile(
+    r"^\s*(?:cookies?(?:\s+policy)?|privacy(?:\s+policy)?|terms(?:\s+of\s+(?:use|service))?|"
+    r"subscribe|sign[\s-]?in|log[\s-]?in|advertisement|accept\s+all(?:\s+cookies?)?|"
+    r"manage\s+preferences|share\s+this|follow\s+us|all\s+rights\s+reserved)\b.*$",
+    re.I,
+)
+MATH_LEAD = re.compile(r"^\s*(?:what(?:'s| is)|calculate|compute|how much is)\s*", re.I)
+SAFE_EXPR = re.compile(r"^[0-9+\-*/()%. ]+$")
+
+
+def _json(context, payload: dict[str, Any], status: int = 200):
+    headers = dict(CORS)
+    headers["content-type"] = "application/json"
+    headers["cache-control"] = "no-cache"
+    return context.res.send(json.dumps(payload), status, headers)
+
+
+def sanitize_for_brain(text: str, max_len: int = BRAIN_TEXT_MAX) -> str:
+    s = str(text or "")
+    s = s.replace("\x00", "")
+    s = re.sub(r"[\u200b-\u200d\ufeff]", "", s)
+    s = re.sub(r"data:[^\s]+", " ", s, flags=re.I)
+    s = re.sub(r"!\[([^\]]*)\]\((https?:\/\/[^)]+|data:[^)]+)\)", r"\1", s, flags=re.I)
+    s = re.sub(r"\[([^\]]+)\]\((https?:\/\/[^)]+)\)", r"\1", s, flags=re.I)
+    s = re.sub(r"https?:\/\/[^\s<>\"'`)\]]+", " ", s, flags=re.I)
+    s = re.sub(r"\bwww\.[^\s<>\"'`)\]]+", " ", s, flags=re.I)
+    s = re.sub(r"[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}", " ", s, flags=re.I)
+    s = re.sub(r"<script[\s\S]*?</script>", " ", s, flags=re.I)
+    s = re.sub(r"<style[\s\S]*?</style>", " ", s, flags=re.I)
+    s = re.sub(r"<[^>]+>", " ", s)
+    s = (
+        s.replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", '"')
+        .replace("&#39;", "'")
+    )
+    lines = []
+    for line in re.split(r"\r\n|\n|\r", s):
+        trimmed = line.strip()
+        if not trimmed or NOISE_LINE_RE.match(trimmed):
+            continue
+        lines.append(trimmed)
+    s = "\n".join(lines)
+    s = re.sub(r"[ \t\f\v]+", " ", s)
+    s = re.sub(r"\n{3,}", "\n\n", s)
+    s = re.sub(r"[.]{4,}", "...", s).strip()
+    if len(s) > max_len:
+        s = s[:max_len].rsplit(" ", 1)[0].rstrip() + "…"
+    return s
+
+
+def try_math(message: str) -> str | None:
+    raw = str(message or "").strip()
+    if not raw:
+        return None
+    head = raw
+    # Drop trailing "just the number" style tails lightly.
+    head = re.split(r"[.!?]\s+(?:reply|answer|just|only|please|give|show|return)\b", head, maxsplit=1)[0]
+    expr = MATH_LEAD.sub("", head).strip()
+    expr = re.sub(r"[.!?]+$", "", expr)
+    expr = (
+        expr.replace("×", "*")
+        .replace("÷", "/")
+        .replace("^", "**")
+    )
+    expr = re.sub(r"\s+plus\s+", "+", expr, flags=re.I)
+    expr = re.sub(r"\s+minus\s+", "-", expr, flags=re.I)
+    expr = re.sub(r"\s+(?:times|multiplied\s+by)\s+", "*", expr, flags=re.I)
+    expr = re.sub(r"\s+(?:divided\s+by|over)\s+", "/", expr, flags=re.I)
+    expr = re.sub(r"\s+", "", expr)
+    check = expr.replace("**", "")
+    if not check or not SAFE_EXPR.match(check):
+        return None
+    try:
+        # Restricted eval: digits and arithmetic operators only (already gated).
+        value = eval(expr, {"__builtins__": {}}, {})  # noqa: S307
+    except Exception:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if isinstance(value, float) and value.is_integer():
+        value = int(value)
+    shown = expr.replace("**", "^")
+    return f"{shown} = **{value}**."
 
 
 def main(context):
@@ -26,70 +113,88 @@ def main(context):
     path = context.req.path or "/"
     if not path.startswith("/"):
         path = "/" + path
-    query = ""
-    raw_query = getattr(context.req, "query_string", None)
-    if raw_query:
-        query = raw_query if str(raw_query).startswith("?") else "?" + str(raw_query)
-    else:
-        params = getattr(context.req, "query", None)
-        if isinstance(params, dict) and params:
-            query = "?" + urlencode(params)
 
-    body = None
-    if method not in ("GET", "HEAD"):
-        payload = context.req.body
-        if isinstance(payload, (dict, list)):
-            body = json.dumps(payload).encode()
-        elif isinstance(payload, str) and payload:
-            body = payload.encode()
-        elif isinstance(payload, (bytes, bytearray)) and payload:
-            body = bytes(payload)
+    if method == "GET" and path in ("/", "/health", "/health/"):
+        return _json(
+            context,
+            {
+                "status": "ok",
+                "role": "compute",
+                "search": "disabled",
+                "note": "Appwrite compute: sanitize + math. Not a brain proxy. No AI-mode search.",
+                "endpoints": ["/health", "/sanitize", "/math", "/compute"],
+            },
+        )
 
-    headers = {}
-    req_headers = context.req.headers if isinstance(context.req.headers, dict) else {}
-    content_type = req_headers.get("content-type") or req_headers.get("Content-Type")
-    accept = req_headers.get("accept") or req_headers.get("Accept")
-    if content_type:
-        headers["Content-Type"] = content_type
-    elif body:
-        headers["Content-Type"] = "application/json"
-    if accept:
-        headers["Accept"] = accept
-
-    last_status = 502
-    for base in UPSTREAMS:
+    payload = context.req.body
+    if isinstance(payload, str) and payload:
         try:
-            upstream = urlrequest.Request(
-                base + path + query, data=body, headers=headers, method=method
-            )
-            try:
-                with urlrequest.urlopen(upstream, timeout=20) as resp:
-                    data = resp.read()
-                    status = resp.status
-                    response_type = resp.headers.get("Content-Type", "application/json")
-            except HTTPError as err:
-                data = err.read()
-                status = err.code
-                response_type = (
-                    err.headers.get("Content-Type", "application/json")
-                    if err.headers
-                    else "application/json"
-                )
-            last_status = status
-            if status == 404 or status >= 500:
-                continue
-            out = dict(CORS)
-            out["content-type"] = response_type
-            out["cache-control"] = "no-cache"
-            return context.res.send(data.decode("utf-8", errors="replace"), status, out)
-        except (URLError, TimeoutError) as err:
-            context.error(str(err))
-            last_status = 502
+            payload = json.loads(payload)
+        except json.JSONDecodeError:
+            payload = {"text": payload}
+    if not isinstance(payload, dict):
+        payload = {}
 
-    err_headers = dict(CORS)
-    err_headers["content-type"] = "application/json"
-    return context.res.send(
-        json.dumps({"status": "error", "detail": "upstream unavailable"}),
-        last_status,
-        err_headers,
+    if method == "POST" and path in ("/sanitize", "/sanitize/"):
+        text = payload.get("text") or payload.get("message") or ""
+        cleaned = sanitize_for_brain(str(text))
+        return _json(
+            context,
+            {
+                "ok": True,
+                "role": "compute",
+                "original_chars": len(str(text)),
+                "cleaned_chars": len(cleaned),
+                "text": cleaned,
+            },
+        )
+
+    if method == "POST" and path in ("/math", "/math/"):
+        expression = payload.get("expression") or payload.get("message") or payload.get("text") or ""
+        result = try_math(str(expression))
+        if not result:
+            return _json(
+                context,
+                {"ok": False, "role": "compute", "error": "expression_not_safe"},
+                status=400,
+            )
+        return _json(context, {"ok": True, "role": "compute", "content": result, "model": "appwrite-math"})
+
+    if method == "POST" and path in ("/compute", "/compute/"):
+        op = str(payload.get("op") or payload.get("action") or "").strip().lower()
+        if op in ("sanitize", "clean"):
+            text = payload.get("text") or payload.get("message") or ""
+            cleaned = sanitize_for_brain(str(text))
+            return _json(
+                context,
+                {"ok": True, "role": "compute", "op": "sanitize", "text": cleaned},
+            )
+        if op in ("math", "calculate"):
+            expression = payload.get("expression") or payload.get("message") or payload.get("text") or ""
+            result = try_math(str(expression))
+            if not result:
+                return _json(
+                    context,
+                    {"ok": False, "role": "compute", "op": "math", "error": "expression_not_safe"},
+                    status=400,
+                )
+            return _json(
+                context,
+                {"ok": True, "role": "compute", "op": "math", "content": result},
+            )
+        return _json(
+            context,
+            {"ok": False, "role": "compute", "error": "unknown_op", "hint": "sanitize|math"},
+            status=400,
+        )
+
+    return _json(
+        context,
+        {
+            "status": "error",
+            "role": "compute",
+            "detail": "not found",
+            "endpoints": ["/health", "/sanitize", "/math", "/compute"],
+        },
+        status=404,
     )

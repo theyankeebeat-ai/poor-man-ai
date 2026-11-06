@@ -2,12 +2,14 @@
   var SESSIONS_KEY = "bpmai-sessions";
   var THEME_KEY = "bpmai-theme";
   var THEMES = { dark: true, light: true, sand: true };
+  // Chat API gateway first (Supabase), then the two lean Go brains.
+  // Appwrite is compute-only (/sanitize, /math) and is not a chat upstream.
   var HOSTED_BRAINS = [
+    "https://wqrriztbsifgytjzippi.supabase.co/functions/v1/api",
     "https://poor-man-ai.vercel.app",
     "https://poor-man-ai.onrender.com",
-    "https://wqrriztbsifgytjzippi.supabase.co/functions/v1/api",
-    "https://poor-man-ai.fra.appwrite.run",
   ];
+  var COMPUTE_API = "https://poor-man-ai.fra.appwrite.run";
   var SOURCE_LABEL = {
     direct: "Direct answer",
     rag_search: "Local corpus",
@@ -1123,11 +1125,13 @@
       var session = active();
       return {
         apiBase: apiBase || "",
+        computeApi: COMPUTE_API,
         sessionId: session ? session.id : "",
         title: session ? session.title : "",
         messageCount: session && Array.isArray(session.messages) ? session.messages.length : 0,
         busy: !!sendBtn.disabled,
         webmcp: !!(window.BPMAIClientTools && window.BPMAIClientTools.webmcpReady && window.BPMAIClientTools.webmcpReady()),
+        search: "disabled",
       };
     },
   };

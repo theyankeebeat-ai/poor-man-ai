@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"html"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -80,11 +79,11 @@ func (c *aiModeMemo) put(q string, entry aiMemoEntry) {
 }
 
 func webSearch(query string) ([]webHit, []engineMiss) {
-	hits, misses := aiModeSearch(query)
-	if len(hits) == 0 || newsRE.MatchString(query) || sportsRE.MatchString(query) {
-		hits = append(hits, googleNews(query)...)
-	}
-	return dedupeHits(hits, 8), misses
+	// Disabled: Duck.ai / Google AI Mode / Brave Ask / Bing / Yandex / Google News
+	// flooded 500MB brains with scrape panels and caused hallucinated answers.
+	// Research now uses local RAG on Vercel/Render only.
+	_ = query
+	return nil, nil
 }
 
 // isWikipediaURL is true for Wikipedia / Wikimedia hosts. Those pages are never
@@ -138,38 +137,13 @@ func dedupeHits(in []webHit, limit int) []webHit {
 }
 
 func aiModeSearch(query string) ([]webHit, []engineMiss) {
-	query = strings.TrimSpace(query)
-	if query == "" {
-		return nil, nil
-	}
-	if entry, ok := aiMemo.get(query); ok {
-		return entry.hits, entry.misses
-	}
-	hits, misses := runAIModeSearch(query)
-	aiMemo.put(query, aiMemoEntry{hits: hits, misses: misses})
-	return hits, misses
+	_ = query
+	return nil, nil
 }
 
 func runAIModeSearch(query string) ([]webHit, []engineMiss) {
-	script := findBrowserSearch()
-	if script == "" {
-		log.Printf("search-engine AI mode: browser_search.py was not found")
-		return nil, nil
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 110*time.Second)
-	defer cancel()
-	cmd := pythonCommand(ctx, "-c", aiModeRunner, filepath.Dir(script), query)
-	if cmd == nil {
-		log.Printf("search-engine AI mode: python was not found")
-		return nil, nil
-	}
-	out, err := cmd.Output()
-	if err != nil {
-		log.Printf("search-engine AI mode: %v", err)
-		return nil, nil
-	}
-	hits, misses := parseAIMode(out)
-	return hits, misses
+	_ = query
+	return nil, nil
 }
 
 const aiModeRunner = `import json, sys

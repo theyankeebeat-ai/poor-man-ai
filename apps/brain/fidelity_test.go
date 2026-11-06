@@ -291,9 +291,10 @@ func TestCitationAmpersandIsNotEscaped(t *testing.T) {
 	}
 }
 
-func TestBrowserSearchScriptPresent(t *testing.T) {
-	if findBrowserSearch() == "" {
-		t.Fatal("browser_search.py was not found")
+func TestWebSearchEnginesDisabled(t *testing.T) {
+	hits, misses := webSearch("what is the capital of France")
+	if len(hits) != 0 || len(misses) != 0 {
+		t.Fatalf("expected empty search, got hits=%#v misses=%#v", hits, misses)
 	}
 }
 

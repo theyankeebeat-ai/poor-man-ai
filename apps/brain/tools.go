@@ -5,9 +5,8 @@ func toolList() []map[string]any {
 		name, desc string
 		params     map[string]any
 	}{
-		{"web_search", "Search-engine AI mode (Google AI Mode, Brave Ask, Bing AI Mode, Duck.ai, Yandex) plus Google News RSS when the question is news or sports. Wikipedia and Wikimedia URLs are dropped.", objSchema("query")},
-		{"read_url", "Read a public page. HTML is tag-stripped. Wikipedia and Wikimedia URLs are refused. JavaScript rendering is not available.", objSchema("url")},
-		{"rag_search", "Hybrid BM25 plus potion-base-8M cosine over the SQuAD v2 passage index. Wikipedia URLs are not cited.", objSchema("query")},
+		{"rag_search", "Hybrid BM25 plus potion-base-8M cosine over the local SQuAD v2 passage index. Live web search engines are disabled on these hosts. Wikipedia URLs are not cited.", objSchema("query")},
+		{"read_url", "Read a public page. HTML is tag-stripped. Wikipedia and Wikimedia URLs are refused. JavaScript rendering is not available. Prefer local RAG for research.", objSchema("url")},
 		{"rag_index", "Append a passage to the session index.", map[string]any{"type": "object", "properties": map[string]any{"content": map[string]any{"type": "string"}}}},
 		{"memory_write", "Append one JSONL fact. This does not train weights.", objSchema("fact")},
 		{"memory_search", "Token-overlap search over memory.jsonl.", objSchema("query")},
