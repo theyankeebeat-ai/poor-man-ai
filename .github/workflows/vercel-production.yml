@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+  workflow_dispatch:
 
 concurrency:
   group: vercel-production
@@ -15,13 +16,27 @@ env:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Vercel CLI
+        shell: pwsh
         run: npm install --global vercel@65.4.0
 
+      - name: Require VERCEL_TOKEN
+        shell: pwsh
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:VERCEL_TOKEN)) {
+            Write-Error "Missing repository secret VERCEL_TOKEN. Create a token at https://vercel.com/account/tokens and set it with: gh secret set VERCEL_TOKEN --repo theyankeebeat-ai/poor-man-ai"
+            exit 1
+          }
+
       - name: Deploy production
+        shell: pwsh
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         # Container service builds on Vercel (Dockerfile). Do not use --prebuilt.
-        run: vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prod --yes --token $env:VERCEL_TOKEN

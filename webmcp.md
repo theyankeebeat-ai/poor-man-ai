@@ -177,8 +177,10 @@ Put work that only needs the visitor’s browser (and public HTTPS APIs such as 
 Native `vercel git connect` needs a GitHub **Login Connection** on the email-login Vercel account (`theyankeebeat-6449`). Until that works, production auto-deploy uses GitHub Actions:
 
 - Workflow: `.github/workflows/vercel-production.yml`
-- Trigger: push to `master`
+- Runner: `windows-latest` (GitHub cloud Windows; your local PC is unchanged)
+- Trigger: push to `master` or manual `workflow_dispatch`
 - Command: `vercel deploy --prod --yes` (container build on Vercel; no `--prebuilt`)
+- Checkout: `actions/checkout@v5` (Node 24)
 
 Required GitHub Actions secrets on `theyankeebeat-ai/poor-man-ai`:
 
