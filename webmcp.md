@@ -171,3 +171,27 @@ Put work that only needs the visitor’s browser (and public HTTPS APIs such as 
 `apps/brain/Dockerfile` builds with `golang:1.25-alpine` and `GOTOOLCHAIN=auto`.
 
 `apps/brain/go.mod` on `master` must stay compatible with that image, or rely on `GOTOOLCHAIN=auto` to fetch a newer toolchain. A local dirty `go.mod` that pins `go 1.26.3` while the CLI uploads the working tree (without committing) will fail the container build if the toolchain cannot resolve. Prefer deploying a clean tree that matches `origin/master`, or commit `go.mod` / `go.sum` together with any Go version bump.
+
+## Vercel deploy (GitHub Actions)
+
+Native `vercel git connect` needs a GitHub **Login Connection** on the email-login Vercel account (`theyankeebeat-6449`). Until that works, production auto-deploy uses GitHub Actions:
+
+- Workflow: `.github/workflows/vercel-production.yml`
+- Trigger: push to `master`
+- Command: `vercel deploy --prod --yes` (container build on Vercel; no `--prebuilt`)
+
+Required GitHub Actions secrets on `theyankeebeat-ai/poor-man-ai`:
+
+| Secret | Value |
+| --- | --- |
+| `VERCEL_TOKEN` | Create at https://vercel.com/account/tokens |
+| `VERCEL_ORG_ID` | `team_tyatlW9pYNVovGHW7i9Vb6iQ` |
+| `VERCEL_PROJECT_ID` | `prj_Zw7jP6D8dAuJkLG1duFP4TGejrM3` |
+
+Manual fallback:
+
+```powershell
+vercel deploy --prod --yes --project poor-man-ai --scope simpleai1
+```
+
+Do not create a new Vercel project for this repo. Production alias stays `https://poor-man-ai.vercel.app`.
