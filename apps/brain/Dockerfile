@@ -1,5 +1,7 @@
 FROM golang:1.25-alpine AS build
 WORKDIR /src
+# Allow go.mod to ask for a newer toolchain than the base image tag.
+ENV GOTOOLCHAIN=auto
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .

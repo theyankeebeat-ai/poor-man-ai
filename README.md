@@ -15,9 +15,9 @@ Static chat UI over a Go brain. There is no Python in the live path.
 ## Run locally
 
 ```powershell
-npm install
-npm run prepare:data
-npm run dev
+yarn
+yarn prepare:data
+yarn dev
 ```
 
 Open http://127.0.0.1:8000/
@@ -27,10 +27,10 @@ Open http://127.0.0.1:8000/
 ## Checks
 
 ```powershell
-npm run build
-npm run typecheck
-npm run lint
-npm test
+yarn build
+yarn typecheck
+yarn lint
+yarn test
 ```
 
 ## Hosting
@@ -38,6 +38,8 @@ npm test
 - **Firebase Hosting** (`zerogravity-ab52d`) serves `web/out` only.
 - **Vercel** and **Render** run the Go brain container/binary.
 - **Supabase** function `api` and **Appwrite** function `score` proxy to Vercel, then Render.
+
+See [webmcp.md](webmcp.md) for the client-tool / WebMCP offload and lean-brain split (math, weather, and time in the browser; research index warms in the background).
 
 The hosted page probes `/health` and uses the first healthy brain:
 
